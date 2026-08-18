@@ -10,7 +10,7 @@ import unicodedata
 from datetime import datetime
 
 # ===================================================================
-# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS (FLEXDASHBOARD FLATLY EXACTO)
+# 1. CONFIGURACIÓN DE PÁGINA Y CSS (TEMA FLATLY Y FORZADO CLARO)
 # ===================================================================
 st.set_page_config(
     page_title="PMU - Sala de Crisis Istmina",
@@ -19,15 +19,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Inyección de FontAwesome + Estilos CSS para replicar Flexdashboard
+# Estilizado global CSS
 st.markdown("""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
     /* Fondo general gris claro Flexdashboard */
     .stApp {
-        background-color: #eaeded;
-        color: #2c3e50;
-        font-family: 'Lato', 'Helvetica Neue', Arial, sans-serif;
+        background-color: #eaeded !important;
+        color: #2c3e50 !important;
+        font-family: 'Lato', 'Helvetica Neue', Arial, sans-serif !important;
     }
     
     header {visibility: hidden !important;}
@@ -49,32 +49,39 @@ st.markdown("""
         letter-spacing: 0.5px;
     }
 
-    /* Barra de Pestañas Integrada al Banner */
+    /* Pestañas de Navegación */
     .stTabs [data-baseweb="tab-list"] {
-        background-color: #1abc9c;
-        padding: 0px 15px;
-        gap: 2px;
-        border-bottom: none;
+        background-color: #1abc9c !important;
+        padding: 0px 15px !important;
+        gap: 4px !important;
+        border-bottom: none !important;
     }
     .stTabs [data-baseweb="tab"] {
-        color: rgba(255, 255, 255, 0.85) !important;
-        font-weight: 600 !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
         font-size: 14px !important;
-        padding: 10px 16px !important;
+        padding: 10px 18px !important;
         border: none !important;
         background-color: transparent !important;
+        opacity: 0.85 !important;
     }
     .stTabs [aria-selected="true"] {
         color: #ffffff !important;
+        opacity: 1.0 !important;
         background-color: #16a085 !important;
         border-bottom: 4px solid #f1c40f !important;
+    }
+
+    /* Sub-pestañas */
+    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+        color: #ffffff !important;
     }
 
     /* Tarjetas ValueBox con Ícono de Marca de Agua */
     .value-box {
         border-radius: 4px;
         padding: 15px 20px;
-        color: white;
+        color: white !important;
         position: relative;
         overflow: hidden;
         min-height: 95px;
@@ -86,11 +93,13 @@ st.markdown("""
         font-weight: 800;
         line-height: 1;
         margin-bottom: 4px;
+        color: white !important;
     }
     .value-box-title {
         font-size: 13px;
         font-weight: 600;
         opacity: 0.95;
+        color: white !important;
     }
     .value-box-icon {
         position: absolute;
@@ -99,16 +108,25 @@ st.markdown("""
         transform: translateY(-50%);
         font-size: 50px;
         opacity: 0.22;
-        color: white;
+        color: white !important;
     }
 
-    /* Contenedores Blancos para Gráficos */
+    /* Contenedores Blancos para Gráficos y Tablas */
     div[data-testid="stVerticalBlock"] > div[data-testid="stBlock"] {
-        background-color: #ffffff;
+        background-color: #ffffff !important;
         border-radius: 4px;
         padding: 12px;
         border: 1px solid #dce4ec;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    /* Títulos en contenedores */
+    .chart-title {
+        color: #2c3e50 !important;
+        font-weight: 700;
+        font-size: 15px;
+        margin-bottom: 8px;
+        display: block;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -143,8 +161,35 @@ def render_value_box(numero, titulo, color_bg, icono_fa):
     </div>
     """, unsafe_allow_html=True)
 
+# Configuración del tema claro para Plotly
+def aplicar_estilo_plotly(fig, height=350):
+    fig.update_layout(
+        template="plotly_white",
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        font=dict(color="#2c3e50", family="Lato, sans-serif", size=12),
+        margin=dict(l=10, r=10, t=10, b=10),
+        height=height,
+        xaxis=dict(
+            gridcolor="#e5e8e8",
+            zerolinecolor="#e5e8e8",
+            tickfont=dict(color="#2c3e50"),
+            title_font=dict(color="#2c3e50")
+        ),
+        yaxis=dict(
+            gridcolor="#e5e8e8",
+            zerolinecolor="#e5e8e8",
+            tickfont=dict(color="#2c3e50"),
+            title_font=dict(color="#2c3e50")
+        ),
+        legend=dict(
+            font=dict(color="#2c3e50")
+        )
+    )
+    return fig
+
 # ===================================================================
-# 2. CARGA Y TRATAMIENTO DE DATOS (BLINDADO CONTRA TYPEERROR)
+# 2. CARGA Y TRATAMIENTO DE DATOS
 # ===================================================================
 def clean_col(name):
     name = unicodedata.normalize('NFD', str(name))
@@ -191,12 +236,10 @@ def cargar_datos():
             "fotos": ["https://google.com", "", ""]
         })
 
-    # Deduplicación por datos reales
     cols_sin_timestamp = [c for c in df.columns if c not in ["marca_temporal", "timestamp", "fecha", "fecha_corta"]]
     if cols_sin_timestamp:
         df = df.drop_duplicates(subset=cols_sin_timestamp, keep="last").reset_index(drop=True)
 
-    # Búsqueda de columnas
     col_barrio = buscar_columna(df.columns, ["barrio", "vereda"]) or "barrio_vereda"
     col_habitabilidad = buscar_columna(df.columns, ["habitabilidad", "clasificacion"]) or "clasificacion_habitabilidad"
     col_habitantes = buscar_columna(df.columns, ["total_habitantes", "habitantes", "personas"]) or "total_habitantes"
@@ -210,7 +253,6 @@ def cargar_datos():
     col_fotos = buscar_columna(df.columns, ["foto", "evidencia"]) or "fotos"
     col_coords = buscar_columna(df.columns, ["coordenadas", "gps", "ubicacion"]) or "coordenadas_gps"
 
-    # CONVERSIÓN OBLIGATORIA A STRING Y CONTEO SEGURO
     df["barrio_vereda"] = df[col_barrio].fillna("No registrado").astype(str) if col_barrio in df.columns else "No registrado"
     df["clasificacion_habitabilidad"] = df[col_habitabilidad].fillna("Sin Clasificar").astype(str) if col_habitabilidad in df.columns else "Sin Clasificar"
     df["total_habitantes"] = pd.to_numeric(df[col_habitantes], errors='coerce').fillna(0).astype(int) if col_habitantes in df.columns else 0
@@ -223,14 +265,12 @@ def cargar_datos():
     df["necesidades_inmediatas"] = df[col_necesidades].fillna("Sin especificación").astype(str) if col_necesidades in df.columns else "Sin especificación"
     df["fotos"] = df[col_fotos].fillna("No registrado").astype(str) if col_fotos in df.columns else "No registrado"
 
-    # Fechas
     col_fecha = buscar_columna(df.columns, ["marca_temporal", "timestamp", "fecha"])
     if col_fecha and col_fecha in df.columns:
         df["fecha_corta"] = pd.to_datetime(df[col_fecha], errors='coerce').dt.date.fillna(datetime.now().date())
     else:
         df["fecha_corta"] = datetime.now().date()
 
-    # Coordenadas
     if col_coords and col_coords in df.columns:
         coords = df[col_coords].astype(str).str.split(",", expand=True)
         df["lat"] = pd.to_numeric(coords[0], errors='coerce').fillna(5.161)
@@ -239,7 +279,6 @@ def cargar_datos():
         df["lat"] = 5.161
         df["lon"] = -76.681
 
-    # Colores
     colores_hab = {
         "Habitable": "#27ae60",
         "Habitable con restricciones": "#f1c40f",
@@ -319,7 +358,7 @@ if df.empty:
     st.stop()
 
 # ===================================================================
-# 3. CONSTRUCCIÓN DE INTERFAZ
+# 3. INTERFAZ SALA DE CRISIS
 # ===================================================================
 st.markdown('<div class="pmu-navbar">PMU - Sala de Crisis Istmina</div>', unsafe_allow_html=True)
 
@@ -335,35 +374,38 @@ with tabs[0]:
 
     g1, g2 = st.columns(2)
     with g1:
-        st.markdown("**Estado de Habitabilidad General**")
+        st.markdown('<span class="chart-title">Estado de Habitabilidad General</span>', unsafe_allow_html=True)
         df_hab = df["clasificacion_habitabilidad"].value_counts().reset_index()
         df_hab.columns = ["Estado", "Cantidad"]
         fig_hab = px.bar(df_hab, x="Cantidad", y="Estado", orientation='h', color="Estado", color_discrete_map=colores_habitabilidad)
-        fig_hab.update_layout(template="plotly_white", showlegend=False, yaxis={'categoryorder':'total ascending'}, margin=dict(l=0, r=10, t=10, b=10))
+        fig_hab = aplicar_estilo_plotly(fig_hab, height=320)
+        fig_hab.update_layout(showlegend=False, yaxis={'categoryorder':'total ascending'}, xaxis_title="Número de Viviendas", yaxis_title="")
         st.plotly_chart(fig_hab, use_container_width=True)
 
     with g2:
-        st.markdown("**Habitabilidad Consolidada por Barrio**")
+        st.markdown('<span class="chart-title">Habitabilidad Consolidada por Barrio</span>', unsafe_allow_html=True)
         df_barrio_cnt = df.groupby('barrio_estandar').size().to_dict()
         df['barrio_etiqueta'] = df['barrio_estandar'].apply(lambda x: f"{x} ({df_barrio_cnt.get(x, 0)})")
         df_barrio = df.groupby(["barrio_etiqueta", "clasificacion_habitabilidad"]).size().reset_index(name="n")
         fig_barrio = px.bar(df_barrio, x="n", y="barrio_etiqueta", color="clasificacion_habitabilidad", orientation='h', color_discrete_map=colores_habitabilidad, labels={"n": "Cantidad de Viviendas", "barrio_etiqueta": ""})
-        fig_barrio.update_layout(template="plotly_white", yaxis={'categoryorder':'total ascending'}, margin=dict(l=0, r=10, t=10, b=10))
+        fig_barrio = aplicar_estilo_plotly(fig_barrio, height=320)
+        fig_barrio.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Cantidad de Viviendas", legend_title_text="")
         st.plotly_chart(fig_barrio, use_container_width=True)
 
-    st.markdown("**Evolución Temporal de Reportes (Línea de Tiempo)**")
+    st.markdown('<span class="chart-title">Evolución Temporal de Reportes (Línea de Tiempo)</span>', unsafe_allow_html=True)
     df_tiempo = df.groupby("fecha_corta").size().reset_index(name="n")
     fig_tiempo = go.Figure()
-    fig_tiempo.add_trace(go.Bar(x=df_tiempo["fecha_corta"], y=df_tiempo["n"], marker_color="#2c3e50", name="Registros", opacity=0.85))
-    fig_tiempo.add_trace(go.Scatter(x=df_tiempo["fecha_corta"], y=df_tiempo["n"], mode="lines+markers", line=dict(color="#e74c3c", width=2), marker=dict(size=6, color="#e74c3c"), name="Tendencia"))
-    fig_tiempo.update_layout(template="plotly_white", showlegend=False, xaxis_title="Fecha de Registro", yaxis_title="Evaluaciones", margin=dict(l=0, r=10, t=10, b=10))
+    fig_tiempo.add_trace(go.Bar(x=df_tiempo["fecha_corta"], y=df_tiempo["n"], marker_color="#34495e", name="Registros", opacity=0.85))
+    fig_tiempo.add_trace(go.Scatter(x=df_tiempo["fecha_corta"], y=df_tiempo["n"], mode="lines+markers", line=dict(color="#e74c3c", width=2.5), marker=dict(size=7, color="#e74c3c"), name="Tendencia"))
+    fig_tiempo = aplicar_estilo_plotly(fig_tiempo, height=220)
+    fig_tiempo.update_layout(showlegend=False, xaxis_title="Fecha de Registro", yaxis_title="Evaluaciones")
     st.plotly_chart(fig_tiempo, use_container_width=True)
 
 # TAB 2: VISOR GEOESPACIAL
 with tabs[1]:
     col_f, col_m = st.columns([45, 55])
     with col_f:
-        st.markdown("**📍 Filtros Interactivos**")
+        st.markdown('<span class="chart-title">📍 Filtros Interactivos</span>', unsafe_allow_html=True)
         barrio_sel = st.multiselect("Seleccione Barrio / Vereda:", options=sorted(df["barrio_estandar"].unique()))
         estado_sel = st.multiselect("Filtrar por Estado de Habitabilidad:", options=sorted(df["clasificacion_habitabilidad"].unique()))
 
@@ -371,7 +413,7 @@ with tabs[1]:
         if barrio_sel: df_m = df_m[df_m["barrio_estandar"].isin(barrio_sel)]
         if estado_sel: df_m = df_m[df_m["clasificacion_habitabilidad"].isin(estado_sel)]
 
-        st.markdown("**🗺️ Mapa Interactivo**")
+        st.markdown('<span class="chart-title">🗺️ Mapa Interactivo</span>', unsafe_allow_html=True)
         m = folium.Map(location=[5.161, -76.681], zoom_start=14, tiles="CartoDB positron")
         for _, r in df_m.iterrows():
             resumen_d = str(r['resumen_danos_criticos'])[:45]
@@ -398,7 +440,7 @@ with tabs[1]:
                 fill_opacity=0.85,
                 popup=folium.Popup(html_popup, max_width=260)
             ).add_to(m)
-        st_folium(m, width="100%", height=440)
+        st_folium(m, width="100%", height=420)
 
     with col_m:
         sub_tab1, sub_tab2 = st.tabs(["📋 Padrón Filtrado", "📊 Gráfica Viva Barrios"])
@@ -412,7 +454,8 @@ with tabs[1]:
 
         with sub_tab2:
             fig_viva = px.histogram(df_m, x="barrio_estandar", color="clasificacion_habitabilidad", color_discrete_map=colores_habitabilidad, labels={"barrio_estandar": "", "count": "Cantidad de Viviendas Filtradas"})
-            fig_viva.update_layout(template="plotly_white", margin=dict(l=0, r=10, t=10, b=10))
+            fig_viva = aplicar_estilo_plotly(fig_viva, height=380)
+            fig_viva.update_layout(yaxis_title="Cantidad de Viviendas Filtradas", xaxis_title="")
             st.plotly_chart(fig_viva, use_container_width=True)
 
 # TAB 3: ANÁLISIS DE DAÑOS
@@ -428,7 +471,7 @@ with tabs[2]:
     with sub_d1:
         cd1, cd2 = st.columns(2)
         with cd1:
-            st.markdown("**Severidad por Elemento**")
+            st.markdown('<span class="chart-title">Severidad por Elemento</span>', unsafe_allow_html=True)
             cols_d = [c for c in df.columns if c.startswith("dano_")]
             if cols_d:
                 df_sev = df[cols_d].melt(var_name="Elemento", value_name="Nivel")
@@ -437,11 +480,12 @@ with tabs[2]:
                     df_sev["Elemento"] = df_sev["Elemento"].str.replace("dano_", "").str.title()
                     colores_dano = {"Leve": "#f1c40f", "Moderado": "#e67e22", "Severo": "#e74c3c", "Colapso": "#8e44ad"}
                     fig_sev = px.bar(df_sev.groupby(["Elemento", "Nivel"]).size().reset_index(name="n"), x="n", y="Elemento", color="Nivel", orientation='h', color_discrete_map=colores_dano)
-                    fig_sev.update_layout(template="plotly_white", margin=dict(l=0, r=10, t=10, b=10))
+                    fig_sev = aplicar_estilo_plotly(fig_sev, height=320)
+                    fig_sev.update_layout(xaxis_title="", yaxis_title="")
                     st.plotly_chart(fig_sev, use_container_width=True)
 
         with cd2:
-            st.markdown("**Señales Visibles Frecuentes**")
+            st.markdown('<span class="chart-title">Señales Visibles Frecuentes</span>', unsafe_allow_html=True)
             cols_sn = [c for c in df.columns if any(p in c for p in ["grieta", "desprendimiento", "inclinacion", "colaps"])]
             if cols_sn:
                 df_sn = df[cols_sn].melt(var_name="Alerta", value_name="Resp")
@@ -449,13 +493,14 @@ with tabs[2]:
                 if not df_sn.empty:
                     df_sn["Alerta"] = df_sn["Alerta"].str.replace("_", " ").str.title()
                     fig_sn = px.bar(df_sn["Alerta"].value_counts().reset_index(name="n"), x="n", y="Alerta", orientation='h', color_discrete_sequence=["#34495e"])
-                    fig_sn.update_layout(template="plotly_white", margin=dict(l=0, r=10, t=10, b=10))
+                    fig_sn = aplicar_estilo_plotly(fig_sn, height=320)
+                    fig_sn.update_layout(showlegend=False, xaxis_title="", yaxis_title="")
                     st.plotly_chart(fig_sn, use_container_width=True)
 
     with sub_d2:
         col_dfiltros, col_dmapa = st.columns([3, 7])
         with col_dfiltros:
-            st.markdown("**Filtros de Afectación**")
+            st.markdown('<span class="chart-title">Filtros de Afectación</span>', unsafe_allow_html=True)
             b_dano = st.multiselect("Seleccione Barrio:", options=sorted(df["barrio_estandar"].unique()), key="bd_dano")
             s_dano = st.multiselect("Seleccione Sector:", options=sorted(df["sector_especifico"].unique()), key="sd_dano")
             
@@ -487,25 +532,27 @@ with tabs[3]:
     with v3: render_value_box(int(df["n_personas_discapacidad"].sum()), "Personas con Discapacidad", "#8e44ad", "fa-wheelchair")
     with v4: render_value_box(int(df["n_mujeres_embarazadas"].sum()), "Mujeres Embarazadas", "#c0392b", "fa-person-pregnant")
 
-    st.markdown("**Concentración de Población Vulnerable por Barrio**")
+    st.markdown('<span class="chart-title">Concentración de Población Vulnerable por Barrio</span>', unsafe_allow_html=True)
     df_v = df.groupby("barrio_estandar")[["ninos", "adultos_mayores", "n_personas_discapacidad", "n_mujeres_embarazadas"]].sum().reset_index()
     df_v_melt = df_v.melt(id_vars=["barrio_estandar"], var_name="Grupo", value_name="Total")
     fig_v = px.bar(df_v_melt[df_v_melt["Total"] > 0], x="Total", y="barrio_estandar", color="Grupo", barmode="group", orientation='h', color_discrete_sequence=px.colors.sequential.Viridis)
-    fig_v.update_layout(template="plotly_white", margin=dict(l=0, r=10, t=10, b=10))
+    fig_v = aplicar_estilo_plotly(fig_v, height=350)
+    fig_v.update_layout(xaxis_title="Cantidad de Personas", yaxis_title="")
     st.plotly_chart(fig_v, use_container_width=True)
 
 # TAB 5: LOGÍSTICA Y RESCATE
 with tabs[4]:
-    st.markdown("**Matriz de Necesidades Inmediatas Solicitadas**")
+    st.markdown('<span class="chart-title">Matriz de Necesidades Inmediatas Solicitadas</span>', unsafe_allow_html=True)
     df_n = pd.DataFrame({
         "Necesidad": ["Cubiertas/Techos", "Materiales Const.", "Reparación Muros", "Estructurales", "Agua Potable", "Alojamiento", "Alimentación"],
         "Total": [df["nec_cubierta"].sum(), df["nec_materiales"].sum(), df["nec_muros"].sum(), df["nec_estructura"].sum(), df["nec_agua"].sum(), df["nec_alojamiento"].sum(), df["nec_alimento"].sum()]
     })
     fig_n = px.bar(df_n, x="Total", y="Necesidad", orientation='h', color_discrete_sequence=["#34495e"])
-    fig_n.update_layout(template="plotly_white", margin=dict(l=0, r=10, t=10, b=10))
+    fig_n = aplicar_estilo_plotly(fig_n, height=300)
+    fig_n.update_layout(showlegend=False, xaxis_title="Viviendas que lo solicitan", yaxis_title="")
     st.plotly_chart(fig_n, use_container_width=True)
 
-    st.markdown("**🚨 Triage Urgente: Familias Inhabitables con Población Vulnerable**")
+    st.markdown('<span class="chart-title">🚨 Triage Urgente: Familias Inhabitables con Población Vulnerable</span>', unsafe_allow_html=True)
     df_t = df[(df["clasificacion_habitabilidad"].str.contains("colapso|no habitable", case=False, na=False)) & ((df["ninos"] > 0) | (df["adultos_mayores"] > 0) | (df["n_personas_discapacidad"] > 0) | (df["n_mujeres_embarazadas"] > 0))]
     
     df_t_show = df_t.rename(columns={
@@ -531,7 +578,7 @@ with tabs[4]:
 
 # TAB 6: EXPEDIENTES
 with tabs[5]:
-    st.markdown("**📂 Base de Datos Completa de Evaluación**")
+    st.markdown('<span class="chart-title">📂 Base de Datos Completa de Evaluación</span>', unsafe_allow_html=True)
     col_search, col_clean = st.columns([4, 1])
     with col_search:
         busqueda = st.text_input("🔍 Buscar por Nombre de Propietario o Barrio:", value=st.session_state["expediente_buscado"])
