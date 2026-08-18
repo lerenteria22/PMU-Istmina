@@ -22,34 +22,55 @@ st.set_page_config(
 st.markdown("""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
+    /* Fondo general claro Flexdashboard */
     .stApp { background-color: #eaeded !important; color: #2c3e50 !important; font-family: 'Lato', 'Helvetica Neue', Arial, sans-serif !important; }
     header {visibility: hidden !important;}
     .block-container { padding-top: 0rem !important; padding-left: 0.8rem !important; padding-right: 0.8rem !important; max-width: 100% !important; }
+    
+    /* BARRA SUPERIOR TURQUESA (Header) */
     .pmu-navbar { background-color: #1abc9c !important; color: #ffffff !important; padding: 14px 20px !important; margin-bottom: 0px !important; font-size: 22px !important; font-weight: 700 !important; letter-spacing: 0.5px !important; }
+    
+    /* BARRA DE NAVEGACIÓN Y PESTAÑAS */
     .stTabs [data-baseweb="tab-list"] { background-color: #1abc9c !important; padding: 0px 15px 4px 15px !important; gap: 4px !important; border-bottom: none !important; }
     .stTabs [data-baseweb="tab"] { background-color: #1abc9c !important; border: none !important; padding: 10px 18px !important; border-radius: 4px 4px 0 0 !important; }
     .stTabs [data-baseweb="tab"] p, .stTabs [data-baseweb="tab"] span, .stTabs [data-baseweb="tab"] div { color: #ffffff !important; font-weight: 700 !important; font-size: 14px !important; opacity: 0.95 !important; }
     .stTabs [aria-selected="true"] { background-color: #16a085 !important; border-bottom: 4px solid #f1c40f !important; }
     .stTabs [aria-selected="true"] p, .stTabs [aria-selected="true"] span, .stTabs [aria-selected="true"] div { color: #ffffff !important; opacity: 1.0 !important; }
+    
+    /* ESTILO INTEGRADO PARA TODOS LOS BOTONES */
     div.stButton > button, div.stButton > button:focus, div.stButton > button:active { background-color: #1abc9c !important; color: #ffffff !important; border: none !important; border-radius: 4px !important; font-weight: 700 !important; font-size: 14px !important; padding: 8px 16px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; transition: all 0.2s ease-in-out !important; }
     div.stButton > button:hover { background-color: #16a085 !important; color: #ffffff !important; box-shadow: 0 3px 6px rgba(0,0,0,0.15) !important; }
     div.stButton > button p, div.stButton > button span { color: #ffffff !important; font-weight: 700 !important; }
+    
+    /* TEXTOS OSCUROS EN CONTENEDORES */
     div[data-testid="stVerticalBlock"] p, div[data-testid="stVerticalBlock"] span, div[data-testid="stVerticalBlock"] label, [data-testid="stWidgetLabel"] p, .chart-title { color: #2c3e50 !important; font-weight: 700 !important; }
+    
+    /* TABLAS BLANCAS CON TEXTO OSCURO */
     div[data-testid="stDataFrame"], div[data-testid="stTable"], div[data-testid="stDataFrame"] div, [data-testid="stElementToolbar"] { background-color: #ffffff !important; color: #2c3e50 !important; }
+    
+    /* CAJAS DE ENTRADA Y DESPLEGABLES BLANCOS */
     input, div[data-baseweb="input"], div[data-baseweb="select"] > div, textarea { background-color: #ffffff !important; color: #2c3e50 !important; border: 1px solid #bdc3c7 !important; border-radius: 4px !important; }
     div[data-baseweb="select"] span, div[data-baseweb="select"] div { color: #2c3e50 !important; }
     div[data-baseweb="popover"] div, div[role="listbox"] { background-color: #ffffff !important; color: #2c3e50 !important; }
+    
+    /* TARJETAS VALUEBOX */
     .value-box { border-radius: 4px; padding: 15px 20px; color: white !important; position: relative; overflow: hidden; min-height: 95px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; }
     .value-box-num { font-size: 38px; font-weight: 800; line-height: 1; margin-bottom: 4px; color: white !important; }
     .value-box-title { font-size: 13px; font-weight: 600; opacity: 0.95; color: white !important; }
     .value-box-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 50px; opacity: 0.22; color: white !important; }
+    
+    /* CONTENEDORES BLANCOS DE GRÁFICOS */
     div[data-testid="stVerticalBlock"] > div[data-testid="stBlock"] { background-color: #ffffff !important; border-radius: 4px; padding: 12px; border: 1px solid #dce4ec; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
     .chart-title { color: #2c3e50 !important; font-weight: 700; font-size: 15px; margin-bottom: 8px; display: block; }
 </style>
 """, unsafe_allow_html=True)
 
-if "autenticado" not in st.session_state: st.session_state["autenticado"] = False
-if "expediente_buscado" not in st.session_state: st.session_state["expediente_buscado"] = ""
+# Control de Autenticación
+if "autenticado" not in st.session_state:
+    st.session_state["autenticado"] = False
+
+if "expediente_buscado" not in st.session_state:
+    st.session_state["expediente_buscado"] = ""
 
 if not st.session_state["autenticado"]:
     st.markdown('<div class="pmu-navbar">🚨 PMU - Sala de Crisis Istmina</div>', unsafe_allow_html=True)
@@ -63,18 +84,26 @@ if not st.session_state["autenticado"]:
             st.error("Contraseña incorrecta")
     st.stop()
 
+# Helper para ValueBoxes
 def render_value_box(numero, titulo, color_bg, icono_fa):
     st.markdown(f"""
     <div class="value-box" style="background-color: {color_bg};">
-        <div><div class="value-box-num">{numero}</div><div class="value-box-title">{titulo}</div></div>
+        <div>
+            <div class="value-box-num">{numero}</div>
+            <div class="value-box-title">{titulo}</div>
+        </div>
         <i class="fa-solid {icono_fa} value-box-icon"></i>
     </div>
     """, unsafe_allow_html=True)
 
+# Estilizado estricto para gráficos de Plotly
 def aplicar_estilo_plotly(fig, height=350):
     fig.update_layout(
-        paper_bgcolor="#ffffff", plot_bgcolor="#ffffff", font=dict(color="#2c3e50", family="sans-serif", size=12),
-        margin=dict(l=10, r=10, t=30, b=40), height=height,
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        font=dict(color="#2c3e50", family="sans-serif", size=12),
+        margin=dict(l=10, r=10, t=30, b=40),
+        height=height,
         xaxis=dict(gridcolor="#e5e8e8", zerolinecolor="#e5e8e8", tickfont=dict(color="#2c3e50"), title_font=dict(color="#2c3e50", size=13), automargin=True),
         yaxis=dict(gridcolor="#e5e8e8", zerolinecolor="#e5e8e8", tickfont=dict(color="#2c3e50"), title_font=dict(color="#2c3e50", size=13), automargin=True),
         legend=dict(font=dict(color="#2c3e50"), bgcolor="rgba(255,255,255,0.8)")
@@ -82,22 +111,26 @@ def aplicar_estilo_plotly(fig, height=350):
     return fig
 
 # ===================================================================
-# 2. CARGA DE DATOS
+# 2. CARGA Y TRATAMIENTO DE DATOS
 # ===================================================================
 def clean_col(name):
     name = unicodedata.normalize('NFD', str(name))
     name = ''.join(c for c in name if unicodedata.category(c) != 'Mn')
     name = name.lower().strip()
-    return re.sub(r'_+', '_', re.sub(r'[^a-z0-9_]', '_', name)).strip('_')
+    name = re.sub(r'[^a-z0-9_]', '_', name)
+    name = re.sub(r'_+', '_', name).strip('_')
+    return name
 
 def buscar_columna(df_cols, palabras_clave):
     for col in df_cols:
-        if any(kw in col for kw in palabras_clave): return col
+        if any(kw in col for kw in palabras_clave):
+            return col
     return None
 
 def check_cond_cols(df, palabras_clave, valores_objetivo):
     cols_coincidentes = [c for c in df.columns if any(kw in c for kw in palabras_clave)]
-    if not cols_coincidentes: return pd.Series(False, index=df.index)
+    if not cols_coincidentes:
+        return pd.Series(False, index=df.index)
     return df[cols_coincidentes].isin(valores_objetivo).any(axis=1)
 
 @st.cache_data(ttl=30)
@@ -106,14 +139,28 @@ def cargar_datos():
     try:
         df_bruto = pd.read_csv(url_csv)
         df_bruto.columns = [clean_col(c) for c in df_bruto.columns]
-        df = df_bruto.copy()
     except Exception:
-        df = pd.DataFrame()
+        df_bruto = pd.DataFrame()
 
-    if df.empty: return pd.DataFrame(), {}
+    if not df_bruto.empty and len(df_bruto) > 0:
+        df = df_bruto.copy()
+    else:
+        df = pd.DataFrame({
+            "marca_temporal": ["2026-08-14 08:30:00", "2026-08-14 10:15:00", "2026-08-14 14:20:00"],
+            "barrio_vereda": ["Cubis", "Comercio", "Independencia"],
+            "clasificacion_habitabilidad": ["Riesgo de colapso", "Habitable", "No habitable"],
+            "total_habitantes": [5, 3, 4], "ninos": [2, 0, 1], "adultos_mayores": [1, 0, 1],
+            "n_personas_discapacidad": [0, 1, 0], "n_mujeres_embarazadas": [1, 0, 0],
+            "coordenadas_gps": ["5.161,-76.681", "5.165,-76.675", "5.158,-76.685"],
+            "nombre_propietario": ["Carlos Pérez", "María López", "Juan Gómez"],
+            "telefono": ["3101234567", "3119876543", "3125554433"],
+            "necesidades_inmediatas": ["Cubierta, Agua", "Materiales", "Reparación de muros"],
+            "fotos": ["https://google.com", "", ""]
+        })
 
     cols_sin_timestamp = [c for c in df.columns if c not in ["marca_temporal", "timestamp", "fecha", "fecha_corta"]]
-    if cols_sin_timestamp: df = df.drop_duplicates(subset=cols_sin_timestamp, keep="last").reset_index(drop=True)
+    if cols_sin_timestamp:
+        df = df.drop_duplicates(subset=cols_sin_timestamp, keep="last").reset_index(drop=True)
 
     col_barrio = buscar_columna(df.columns, ["barrio", "vereda"]) or "barrio_vereda"
     col_habitabilidad = buscar_columna(df.columns, ["habitabilidad", "clasificacion"]) or "clasificacion_habitabilidad"
@@ -141,16 +188,28 @@ def cargar_datos():
     df["fotos"] = df[col_fotos].fillna("No registrado").astype(str) if col_fotos in df.columns else "No registrado"
 
     col_fecha = buscar_columna(df.columns, ["marca_temporal", "timestamp", "fecha"])
-    if col_fecha and col_fecha in df.columns: df["fecha_corta"] = pd.to_datetime(df[col_fecha], errors='coerce').dt.date.fillna(datetime.now().date())
-    else: df["fecha_corta"] = datetime.now().date()
+    if col_fecha and col_fecha in df.columns:
+        df["fecha_corta"] = pd.to_datetime(df[col_fecha], errors='coerce').dt.date.fillna(datetime.now().date())
+    else:
+        df["fecha_corta"] = datetime.now().date()
 
     if col_coords and col_coords in df.columns:
         coords = df[col_coords].astype(str).str.split(",", expand=True)
         df["lat"] = pd.to_numeric(coords[0], errors='coerce').fillna(5.161)
         df["lon"] = pd.to_numeric(coords[1], errors='coerce').fillna(-76.681)
-    else: df["lat"] = 5.161; df["lon"] = -76.681
+    else:
+        df["lat"] = 5.161
+        df["lon"] = -76.681
 
-    colores_hab = { "Habitable": "#27ae60", "Habitable con restricciones": "#f1c40f", "No habitable": "#e74c3c", "Riesgo de colapso": "#8e44ad", "No evaluado": "#3498db", "Sin Clasificar": "#95a5a6", "No registrado": "#95a5a6" }
+    colores_hab = {
+        "Habitable": "#27ae60",
+        "Habitable con restricciones": "#f1c40f",
+        "No habitable": "#e74c3c",
+        "Riesgo de colapso": "#8e44ad",
+        "No evaluado": "#3498db",
+        "Sin Clasificar": "#95a5a6",
+        "No registrado": "#95a5a6"
+    }
 
     def estandarizar_barrio(txt):
         txt = str(txt).lower().strip()
@@ -182,7 +241,8 @@ def cargar_datos():
 
     def crear_btn_foto(foto):
         foto = str(foto).strip()
-        if foto in ["No registrado", "", "nan", "None", "#"]: return "<span style='color:gray; font-size:11px;'>Sin evidencia fotográfica</span>"
+        if foto in ["No registrado", "", "nan", "None", "#"]:
+            return "<span style='color:gray; font-size:11px;'>Sin evidencia fotográfica</span>"
         return f"<a href='{foto}' target='_blank' style='display:inline-block; padding:4px 8px; background:#2980b9; color:white; border-radius:4px; text-decoration:none; font-size:11px; font-weight:bold;'>Ver Evidencia</a>"
 
     df["btn_foto"] = df["fotos"].apply(crear_btn_foto)
@@ -223,9 +283,12 @@ if df.empty:
 # 3. INTERFAZ SALA DE CRISIS
 # ===================================================================
 st.markdown('<div class="pmu-navbar">PMU - Sala de Crisis Istmina</div>', unsafe_allow_html=True)
+
 tabs = st.tabs(["Mando Unificado", "Visor Geoespacial", "Análisis de Daños", "Vulnerabilidad", "Logística y Rescate", "Expedientes"])
 
+# -------------------------------------------------------------------
 # TAB 1: MANDO UNIFICADO
+# -------------------------------------------------------------------
 with tabs[0]:
     c1, c2, c3, c4 = st.columns(4)
     with c1: render_value_box(len(df), "Viviendas Evaluadas", "#2c3e50", "fa-house")
@@ -262,7 +325,9 @@ with tabs[0]:
     fig_tiempo.update_layout(showlegend=False, xaxis_title="Fecha de Registro", yaxis_title="Evaluaciones")
     st.plotly_chart(fig_tiempo, use_container_width=True, theme=None)
 
+# -------------------------------------------------------------------
 # TAB 2: VISOR GEOESPACIAL
+# -------------------------------------------------------------------
 with tabs[1]:
     col_f, col_m = st.columns([45, 55])
     with col_f:
@@ -292,7 +357,15 @@ with tabs[1]:
             <div style='text-align:center;'>{r['btn_foto']}</div>
             </div>
             """
-            folium.CircleMarker(location=[r["lat"], r["lon"]], radius=8, color=r["color_riesgo"], fill=True, fill_color=r["color_riesgo"], fill_opacity=0.85, popup=folium.Popup(html_popup, max_width=260)).add_to(m)
+            folium.CircleMarker(
+                location=[r["lat"], r["lon"]],
+                radius=8,
+                color=r["color_riesgo"],
+                fill=True,
+                fill_color=r["color_riesgo"],
+                fill_opacity=0.85,
+                popup=folium.Popup(html_popup, max_width=260)
+            ).add_to(m)
         st_folium(m, width="100%", height=420, key="mapa_general")
 
     with col_m:
@@ -311,7 +384,9 @@ with tabs[1]:
             fig_viva.update_layout(yaxis_title="Cantidad de Viviendas Filtradas", xaxis_title="")
             st.plotly_chart(fig_viva, use_container_width=True, theme=None)
 
+# -------------------------------------------------------------------
 # TAB 3: ANÁLISIS DE DAÑOS
+# -------------------------------------------------------------------
 with tabs[2]:
     d1, d2, d3, d4 = st.columns(4)
     with d1: render_value_box(int(df["es_riesgo_estructural"].sum()), "Riesgo Estructural Crítico", "#e74c3c", "fa-building")
@@ -366,10 +441,20 @@ with tabs[2]:
             for _, r in df_mapa_danos.iterrows():
                 color_point = "#8e44ad" if r["es_colapso"] else ("#e74c3c" if r["es_riesgo_estructural"] else "#f39c12")
                 html_p = f"<b>{r['nombre_propietario']}</b><br>Daños: {r['resumen_danos_criticos']}"
-                folium.CircleMarker(location=[r["lat"], r["lon"]], radius=8, color=color_point, fill=True, fill_color=color_point, fill_opacity=0.8, popup=folium.Popup(html_p, max_width=250)).add_to(m_dano)
+                folium.CircleMarker(
+                    location=[r["lat"], r["lon"]],
+                    radius=8,
+                    color=color_point,
+                    fill=True,
+                    fill_color=color_point,
+                    fill_opacity=0.8,
+                    popup=folium.Popup(html_p, max_width=250)
+                ).add_to(m_dano)
             st_folium(m_dano, width="100%", height=400, key="mapa_danos")
 
+# -------------------------------------------------------------------
 # TAB 4: VULNERABILIDAD
+# -------------------------------------------------------------------
 with tabs[3]:
     v1, v2, v3, v4 = st.columns(4)
     with v1: render_value_box(int(df["ninos"].sum()), "Total Niños y Niñas", "#16a085", "fa-child")
@@ -386,10 +471,11 @@ with tabs[3]:
         f_emb = st.checkbox("Mujeres Embarazadas", value=True)
 
         cond_v = pd.Series(False, index=df.index)
-        if f_ninos: cond_v |= (df["ninos"] > 0)
-        if f_mayores: cond_v |= (df["adultos_mayores"] > 0)
-        if f_discap: cond_v |= (df["n_personas_discapacidad"] > 0)
-        if f_emb: cond_v |= (df["n_mujeres_embarazadas"] > 0)
+        if not df.empty:
+            if f_ninos: cond_v |= (df["ninos"] > 0)
+            if f_mayores: cond_v |= (df["adultos_mayores"] > 0)
+            if f_discap: cond_v |= (df["n_personas_discapacidad"] > 0)
+            if f_emb: cond_v |= (df["n_mujeres_embarazadas"] > 0)
 
         df_v_mapa = df[cond_v]
         m_v = folium.Map(location=[5.161, -76.681], zoom_start=14, tiles="CartoDB positron")
@@ -402,13 +488,21 @@ with tabs[3]:
             <b>Discapacidad:</b> {r['n_personas_discapacidad']} | <b>Embarazadas:</b> {r['n_mujeres_embarazadas']}<br>
             </div>
             """
-            folium.CircleMarker(location=[r["lat"], r["lon"]], radius=8, color="#e67e22", fill=True, fill_color="#e67e22", fill_opacity=0.8, popup=folium.Popup(html_p, max_width=250)).add_to(m_v)
+            folium.CircleMarker(
+                location=[r["lat"], r["lon"]],
+                radius=8,
+                color="#e67e22",
+                fill=True,
+                fill_color="#e67e22",
+                fill_opacity=0.8,
+                popup=folium.Popup(html_p, max_width=250)
+            ).add_to(m_v)
         st_folium(m_v, width="100%", height=400, key="mapa_vuln")
 
     with col_v_der:
         st.markdown('<span class="chart-title">Concentración de Población Vulnerable por Barrio</span>', unsafe_allow_html=True)
         df_v = df.groupby("barrio_estandar")[["ninos", "adultos_mayores", "n_personas_discapacidad", "n_mujeres_embarazadas"]].sum().reset_index()
-        df_v = df_v.rename(columns={"ninos": "Niños", "adultos_mayores": "Adultos Mayores", "n_personas_discapacidad": "Personas con Discapacidad", "n_mujeres_embarazadas": "Mujeres Embarazadas"})
+        df_v = df_v.rename(columns={"ninos": "Niños y Niñas", "adultos_mayores": "Adultos Mayores", "n_personas_discapacidad": "Personas con Discapacidad", "n_mujeres_embarazadas": "Mujeres Embarazadas"})
         df_v_melt = df_v.melt(id_vars=["barrio_estandar"], var_name="Grupo", value_name="Total")
         
         fig_v = px.bar(df_v_melt, x="Total", y="barrio_estandar", color="Grupo", barmode="group", orientation='h', color_discrete_sequence=px.colors.sequential.Viridis)
@@ -416,7 +510,9 @@ with tabs[3]:
         fig_v.update_layout(xaxis_title="Cantidad de Personas", yaxis_title="", legend_title_text="")
         st.plotly_chart(fig_v, use_container_width=True, theme=None)
 
+# -------------------------------------------------------------------
 # TAB 5: LOGÍSTICA Y RESCATE
+# -------------------------------------------------------------------
 with tabs[4]:
     st.markdown('<span class="chart-title">Matriz de Necesidades Inmediatas Solicitadas</span>', unsafe_allow_html=True)
     df_n = pd.DataFrame({
@@ -431,7 +527,17 @@ with tabs[4]:
     st.markdown('<span class="chart-title">🚨 Triage Urgente: Familias Inhabitables con Población Vulnerable</span>', unsafe_allow_html=True)
     df_t = df[(df["clasificacion_habitabilidad"].str.contains("colapso|no habitable", case=False, na=False)) & ((df["ninos"] > 0) | (df["adultos_mayores"] > 0) | (df["n_personas_discapacidad"] > 0) | (df["n_mujeres_embarazadas"] > 0))]
     
-    df_t_show = df_t.rename(columns={"barrio_estandar": "Barrio", "nombre_propietario": "Propietario", "telefono": "Teléfono", "clasificacion_habitabilidad": "Estado", "ninos": "Niños", "adultos_mayores": "Mayores", "n_personas_discapacidad": "Discap", "n_mujeres_embarazadas": "Embarazo", "necesidades_inmediatas": "Necesita"})
+    df_t_show = df_t.rename(columns={
+        "barrio_estandar": "Barrio",
+        "nombre_propietario": "Propietario",
+        "telefono": "Teléfono",
+        "clasificacion_habitabilidad": "Estado",
+        "ninos": "Niños",
+        "adultos_mayores": "Mayores",
+        "n_personas_discapacidad": "Discap",
+        "n_mujeres_embarazadas": "Embarazo",
+        "necesidades_inmediatas": "Necesita"
+    })
     cols_triage = ["Barrio", "Propietario", "Teléfono", "Estado", "Niños", "Mayores", "Discap", "Embarazo", "Necesita"]
     st.dataframe(df_t_show[[c for c in cols_triage if c in df_t_show.columns]], use_container_width=True)
 
@@ -442,20 +548,40 @@ with tabs[4]:
                 st.session_state["expediente_buscado"] = triage_sel
                 st.success("Caso seleccionado. Ve a la pestaña 'Expedientes'.")
 
+# -------------------------------------------------------------------
 # TAB 6: EXPEDIENTES
+# -------------------------------------------------------------------
 with tabs[5]:
     st.markdown('<span class="chart-title">📂 Base de Datos Completa de Evaluación</span>', unsafe_allow_html=True)
     col_search, col_clean = st.columns([4, 1])
-    with col_search: busqueda = st.text_input("🔍 Buscar por Nombre de Propietario o Barrio:", value=st.session_state["expediente_buscado"])
+    with col_search:
+        busqueda = st.text_input("🔍 Buscar por Nombre de Propietario o Barrio:", value=st.session_state["expediente_buscado"])
     with col_clean:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("Limpiar Filtro"):
             st.session_state["expediente_buscado"] = ""
             st.rerun()
 
-    df_export = df.rename(columns={"fecha_corta": "Fecha", "barrio_estandar": "Barrio", "sector_especifico": "Sector", "nombre_propietario": "Propietario", "telefono": "Teléfono", "clasificacion_habitabilidad": "Habitabilidad", "total_habitantes": "Pob_Total", "ninos": "Niños", "adultos_mayores": "Mayores", "n_personas_discapacidad": "Discapacitados", "n_mujeres_embarazadas": "Embarazadas", "resumen_danos_criticos": "Daños_Críticos", "necesidades_inmediatas": "Necesidades"})
+    df_export = df.rename(columns={
+        "fecha_corta": "Fecha",
+        "barrio_estandar": "Barrio",
+        "sector_especifico": "Sector",
+        "nombre_propietario": "Propietario",
+        "telefono": "Teléfono",
+        "clasificacion_habitabilidad": "Habitabilidad",
+        "total_habitantes": "Pob_Total",
+        "ninos": "Niños",
+        "adultos_mayores": "Mayores",
+        "n_personas_discapacidad": "Discapacitados",
+        "n_mujeres_embarazadas": "Embarazadas",
+        "resumen_danos_criticos": "Daños_Críticos",
+        "necesidades_inmediatas": "Necesidades"
+    })
+    
     cols_exp = ["Fecha", "Barrio", "Sector", "Propietario", "Teléfono", "Habitabilidad", "Pob_Total", "Niños", "Mayores", "Discapacitados", "Embarazadas", "Daños_Críticos", "Necesidades"]
     df_e = df_export[[c for c in cols_exp if c in df_export.columns]].copy()
     
-    if busqueda: df_e = df_e[df_e["Propietario"].astype(str).str.contains(busqueda, case=False) | df_e["Barrio"].astype(str).str.contains(busqueda, case=False)]
+    if busqueda:
+        df_e = df_e[df_e["Propietario"].astype(str).str.contains(busqueda, case=False) | df_e["Barrio"].astype(str).str.contains(busqueda, case=False)]
+
     st.dataframe(df_e, use_container_width=True)
