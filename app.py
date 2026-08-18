@@ -40,7 +40,7 @@ st.markdown("""
     /* SUB-PESTAÑAS INTERNAS */
     div[data-testid="stTab"] button p { color: #2c3e50 !important; font-weight: 700 !important; }
     
-    /* ESTILO INTEGRADO PARA TODOS LOS BOTONES */
+    /* ESTILO INTEGRADO PARA BOTONES */
     div.stButton > button, div.stButton > button:focus, div.stButton > button:active { background-color: #1abc9c !important; color: #ffffff !important; border: none !important; border-radius: 4px !important; font-weight: 700 !important; font-size: 14px !important; padding: 8px 16px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; transition: all 0.2s ease-in-out !important; }
     div.stButton > button:hover { background-color: #16a085 !important; color: #ffffff !important; box-shadow: 0 3px 6px rgba(0,0,0,0.15) !important; }
     div.stButton > button p, div.stButton > button span { color: #ffffff !important; font-weight: 700 !important; }
@@ -48,10 +48,10 @@ st.markdown("""
     /* TEXTOS OSCUROS EN CONTENEDORES */
     div[data-testid="stVerticalBlock"] p, div[data-testid="stVerticalBlock"] span, div[data-testid="stVerticalBlock"] label, [data-testid="stWidgetLabel"] p, .chart-title { color: #2c3e50 !important; font-weight: 700 !important; }
     
-    /* TABLAS BLANCAS CON TEXTO OSCURO */
-    div[data-testid="stDataFrame"], div[data-testid="stTable"], div[data-testid="stDataFrame"] div, [data-testid="stElementToolbar"] { background-color: #ffffff !important; color: #2c3e50 !important; }
+    /* AJUSTE SEGURO DE TABLAS */
+    div[data-testid="stDataFrame"] { border-radius: 4px; border: 1px solid #dce4ec; }
     
-    /* CORRECCIÓN DE CONTRASTE Y LEGIBILIDAD EN DESPLEGABLES (SELECT & MULTISELECT) */
+    /* CONTRASTE EN DESPLEGABLES */
     div[data-baseweb="select"] > div { background-color: #ffffff !important; color: #2c3e50 !important; border: 1px solid #bdc3c7 !important; border-radius: 4px !important; }
     div[data-baseweb="select"] span, div[data-baseweb="select"] div, div[data-baseweb="select"] input { color: #2c3e50 !important; font-weight: 600 !important; }
     div[data-baseweb="popover"], div[data-baseweb="popover"] * { background-color: #ffffff !important; color: #2c3e50 !important; }
@@ -103,7 +103,7 @@ def render_value_box(numero, titulo, color_bg, icono_fa):
     </div>
     """, unsafe_allow_html=True)
 
-# Estilizado estricto para gráficos de Plotly
+# Estilizado para Plotly
 def aplicar_estilo_plotly(fig, height=350):
     fig.update_layout(
         paper_bgcolor="#ffffff",
@@ -118,7 +118,7 @@ def aplicar_estilo_plotly(fig, height=350):
     return fig
 
 # ===================================================================
-# 2. CARGA Y TRATAMIENTO DE DATOS CON DEPURACIÓN QUIRÚRGICA
+# 2. CARGA Y TRATAMIENTO DE DATOS
 # ===================================================================
 def clean_col(name):
     name = unicodedata.normalize('NFD', str(name))
@@ -173,7 +173,6 @@ def cargar_datos():
     col_ninos = buscar_columna(df.columns, ["ninos", "ninase"]) or "ninos"
     col_mayores = buscar_columna(df.columns, ["adultos_mayores", "mayores", "ancianos"]) or "adultos_mayores"
     
-    # Búsqueda rigurosa de vulnerabilidades (Número vs Texto)
     col_discap_num = buscar_columna(df.columns, ["numdiscapacidad", "cant_discapacidad", "n_personas_discapacidad"])
     col_discap_txt = buscar_columna(df.columns, ["discapacidad"])
     col_emb_num = buscar_columna(df.columns, ["numembarazadas", "cant_embarazadas", "n_mujeres_embarazadas"])
@@ -185,7 +184,6 @@ def cargar_datos():
     col_necesidades = buscar_columna(df.columns, ["necesidad", "requiere"]) or "necesidades_inmediatas"
     col_coords = buscar_columna(df.columns, ["coordenadas", "gps", "ubicacion"]) or "coordenadas_gps"
 
-    # Captura directa de la Columna B (Índice 1 en programación) para el link de fotos
     col_fotos = df.columns[1] if len(df.columns) > 1 else "fotos"
 
     df["barrio_vereda"] = df[col_barrio].fillna("No registrado").astype(str) if col_barrio in df.columns else "No registrado"
@@ -194,9 +192,6 @@ def cargar_datos():
     df["ninos"] = pd.to_numeric(df[col_ninos], errors='coerce').fillna(0).astype(int) if col_ninos in df.columns else 0
     df["adultos_mayores"] = pd.to_numeric(df[col_mayores], errors='coerce').fillna(0).astype(int) if col_mayores in df.columns else 0
     
-    # -------------------------------------------------------------------
-    # DETECCIÓN ESTRUCTURADA DE DISCAPACIDAD Y EMBARAZO (NÚMERO + RESPALDO)
-    # -------------------------------------------------------------------
     if col_discap_num and col_discap_num in df.columns:
         df["n_personas_discapacidad"] = pd.to_numeric(df[col_discap_num], errors='coerce').fillna(0).astype(int)
     else:
@@ -271,30 +266,21 @@ def cargar_datos():
     df["sector_especifico"] = df["barrio_vereda"].apply(estandarizar_sector)
 
     # -------------------------------------------------------------------
-    # OPCIÓN C MEJORADA: FILTRO QUIRÚRGICO DE REPETIDOS POR HUELLA DIGITAL
+    # FILTRO DE DUPLICADOS CORREGIDO (DOCUMENTO O LLAVE PROPIETARIO+BARRIO+GPS)
     # -------------------------------------------------------------------
-    df['lat_round'] = df['lat'].round(4)
-    df['lon_round'] = df['lon'].round(4)
-    
-    col_area = buscar_columna(df.columns, ["area", "superficie"])
-    col_anio = buscar_columna(df.columns, ["anio", "edad", "construccion"])
-    col_hora = buscar_columna(df.columns, ["horavisita", "hora", "timestamp", "marca_temporal"])
+    df['lat_3dec'] = df['lat'].round(3)
+    df['lon_3dec'] = df['lon'].round(3)
 
-    df['val_area'] = df[col_area].fillna("").astype(str) if col_area else ""
-    df['val_anio'] = df[col_anio].fillna("").astype(str) if col_anio else ""
-    df['val_hora'] = df[col_hora].fillna("").astype(str) if col_hora else ""
+    def generar_llave_duplicado(row):
+        doc = str(row['documento']).strip()
+        if doc not in ["No registrado", "", "nan", "None", "0"]:
+            return f"doc_{doc}"
+        prop = str(row['nombre_propietario']).lower().strip()
+        barrio = str(row['barrio_estandar']).lower().strip()
+        return f"prop_{prop}_{barrio}_{row['lat_3dec']}_{row['lon_3dec']}"
 
-    df['huella_propiedad'] = (
-        df['nombre_propietario'].astype(str).str.lower().str.strip() + "_" +
-        df['lat_round'].astype(str) + "_" +
-        df['lon_round'].astype(str) + "_" +
-        df['val_area'] + "_" +
-        df['val_anio'] + "_" +
-        df['val_hora']
-    )
-    
-    # Preservar siempre la última re-evaluación exacta de una misma propiedad
-    df = df.drop_duplicates(subset=['huella_propiedad'], keep='last').reset_index(drop=True)
+    df['llave_duplicado'] = df.apply(generar_llave_duplicado, axis=1)
+    df = df.drop_duplicates(subset=['llave_duplicado'], keep='last').reset_index(drop=True)
 
     colores_hab = {
         "Habitable": "#27ae60",
@@ -579,14 +565,20 @@ with tabs[2]:
             st_folium(m_dano, width="100%", height=400, key="mapa_danos")
 
 # -------------------------------------------------------------------
-# TAB 4: VULNERABILIDAD
+# TAB 4: VULNERABILIDAD CON PALETA Y JERARQUÍA DE COLORES ESTRICTA
 # -------------------------------------------------------------------
 with tabs[3]:
+    # PALETA DE COLORES OFICIAL
+    color_ninos = "#16a085"
+    color_mayores = "#2980b9"
+    color_discap = "#8e44ad"
+    color_emb = "#c0392b"
+
     v1, v2, v3, v4 = st.columns(4)
-    with v1: render_value_box(int(df["ninos"].sum()), "Total Niños y Niñas", "#16a085", "fa-child")
-    with v2: render_value_box(int(df["adultos_mayores"].sum()), "Adultos Mayores", "#2980b9", "fa-user")
-    with v3: render_value_box(int(df["n_personas_discapacidad"].sum()), "Personas con Discapacidad", "#8e44ad", "fa-wheelchair")
-    with v4: render_value_box(int(df["n_mujeres_embarazadas"].sum()), "Mujeres Embarazadas", "#c0392b", "fa-person-pregnant")
+    with v1: render_value_box(int(df["ninos"].sum()), "Total Niños y Niñas", color_ninos, "fa-child")
+    with v2: render_value_box(int(df["adultos_mayores"].sum()), "Adultos Mayores", color_mayores, "fa-user")
+    with v3: render_value_box(int(df["n_personas_discapacidad"].sum()), "Personas con Discapacidad", color_discap, "fa-wheelchair")
+    with v4: render_value_box(int(df["n_mujeres_embarazadas"].sum()), "Mujeres Embarazadas", color_emb, "fa-person-pregnant")
 
     col_v_izq, col_v_der = st.columns([4, 6])
     with col_v_izq:
@@ -605,9 +597,19 @@ with tabs[3]:
 
         df_v_mapa = df[cond_v]
         m_v = folium.Map(location=[5.161, -76.681], zoom_start=14, tiles="CartoDB positron")
+        
         for _, r in df_v_mapa.iterrows():
             total_vuln = int(r["ninos"] + r["adultos_mayores"] + r["n_personas_discapacidad"] + r["n_mujeres_embarazadas"])
             doc_str = f"({r['documento']})" if r['documento'] != "No registrado" else ""
+            
+            # JERARQUÍA DE COLOR PARA EL MAPA
+            color_marker = color_ninos # Por defecto verde (Niños)
+            if r['n_mujeres_embarazadas'] > 0:
+                color_marker = color_emb # Rojo (Prioridad máxima médica)
+            elif r['n_personas_discapacidad'] > 0:
+                color_marker = color_discap # Morado
+            elif r['adultos_mayores'] > 0:
+                color_marker = color_mayores # Azul
             
             html_p = f"""
             <div style='min-width:200px; font-family:sans-serif;'>
@@ -615,19 +617,19 @@ with tabs[3]:
             <b>Teléfono:</b> {r['telefono']}<br>
             <b>Barrio:</b> {r['barrio_estandar']} ({r['sector_especifico']})<br>
             <hr style='margin:5px 0;'>
-            <b>Total Personas Vulnerables:</b> <span style='color:#d35400; font-size:14px; font-weight:bold;'>{total_vuln}</span><br>
+            <b>Total Personas Vulnerables:</b> <span style='color:{color_marker}; font-size:14px; font-weight:bold;'>{total_vuln}</span><br>
             <ul style='margin:5px 0 10px 15px; padding:0; font-size:12px;'>
-                <li><b>Niños / Niñas:</b> {r['ninos']}</li>
-                <li><b>Adultos Mayores:</b> {r['adultos_mayores']}</li>
-                <li><b>Mujeres Embarazadas:</b> {r['n_mujeres_embarazadas']}</li>
-                <li><b>Personas c/ Discapacidad:</b> {r['n_personas_discapacidad']}</li>
+                <li><b style='color:{color_ninos};'>Niños / Niñas:</b> {r['ninos']}</li>
+                <li><b style='color:{color_mayores};'>Adultos Mayores:</b> {r['adultos_mayores']}</li>
+                <li><b style='color:{color_discap};'>Discapacidad:</b> {r['n_personas_discapacidad']}</li>
+                <li><b style='color:{color_emb};'>Embarazadas:</b> {r['n_mujeres_embarazadas']}</li>
             </ul>
             <div style='text-align:center;'>{r['btn_foto']}</div>
             </div>
             """
             folium.CircleMarker(
                 location=[r["lat"], r["lon"]],
-                radius=8, color="#e67e22", fill=True, fill_color="#e67e22", fill_opacity=0.85,
+                radius=8, color=color_marker, fill=True, fill_color=color_marker, fill_opacity=0.85,
                 popup=folium.Popup(html_p, max_width=280)
             ).add_to(m_v)
         st_folium(m_v, width="100%", height=400, key="mapa_vuln")
@@ -638,7 +640,15 @@ with tabs[3]:
         df_v = df_v.rename(columns={"ninos": "Niños y Niñas", "adultos_mayores": "Adultos Mayores", "n_personas_discapacidad": "Personas con Discapacidad", "n_mujeres_embarazadas": "Mujeres Embarazadas"})
         df_v_melt = df_v.melt(id_vars=["barrio_estandar"], var_name="Grupo", value_name="Total")
         
-        fig_v = px.bar(df_v_melt, x="Total", y="barrio_estandar", color="Grupo", barmode="group", orientation='h', color_discrete_sequence=px.colors.sequential.Viridis)
+        # DICCIONARIO PARA FORZAR LOS COLORES EN LA GRÁFICA DE BARRAS
+        color_map_vuln = {
+            "Niños y Niñas": color_ninos,
+            "Adultos Mayores": color_mayores,
+            "Personas con Discapacidad": color_discap,
+            "Mujeres Embarazadas": color_emb
+        }
+        
+        fig_v = px.bar(df_v_melt, x="Total", y="barrio_estandar", color="Grupo", barmode="group", orientation='h', color_discrete_map=color_map_vuln)
         fig_v = aplicar_estilo_plotly(fig_v, height=450)
         fig_v.update_layout(xaxis_title="Cantidad de Personas", yaxis_title="", legend_title_text="")
         st.plotly_chart(fig_v, use_container_width=True, theme=None)
