@@ -224,9 +224,9 @@ def cargar_datos():
     else:
         df["documento"] = "No registrado"
 
-    col_fecha = buscar_columna(df.columns, ["marca_temporal", "timestamp", "fecha"])
-    if col_fecha and col_fecha in df.columns:
-        df["fecha_corta"] = pd.to_datetime(df[col_fecha], errors='coerce').dt.date.fillna(datetime.now().date())
+    col_fecha_real = buscar_columna(df.columns, ["marca_temporal", "timestamp", "fecha"])
+    if col_fecha_real and col_fecha_real in df.columns:
+        df["fecha_corta"] = pd.to_datetime(df[col_fecha_real], errors='coerce').dt.date.fillna(datetime.now().date())
     else:
         df["fecha_corta"] = datetime.now().date()
 
@@ -266,21 +266,28 @@ def cargar_datos():
     df["sector_especifico"] = df["barrio_vereda"].apply(estandarizar_sector)
 
     # -------------------------------------------------------------------
-    # FILTRO DE DUPLICADOS CORREGIDO (DOCUMENTO O LLAVE PROPIETARIO+BARRIO+GPS)
+    # NUEVO FILTRO 100% SEGURO: ANTI-DOBLE CLIC (VENTANA DE 15 MINUTOS)
     # -------------------------------------------------------------------
-    df['lat_3dec'] = df['lat'].round(3)
-    df['lon_3dec'] = df['lon'].round(3)
+    if col_fecha_real and col_fecha_real in df.columns:
+        # Convertir a datetime real para medir minutos exactos
+        df['fecha_hora_dt'] = pd.to_datetime(df[col_fecha_real], errors='coerce')
+        
+        # Ordenar cronológicamente para garantizar la secuencia de envíos
+        df = df.sort_values(by=['nombre_propietario', 'barrio_estandar', 'fecha_hora_dt'])
+        
+        # Calcular los minutos de diferencia entre un registro y el siguiente
+        df['minutos_al_siguiente'] = df.groupby(['nombre_propietario', 'barrio_estandar'])['fecha_hora_dt'].diff(periods=-1).dt.total_seconds().abs() / 60.0
+        
+        # REGLA MAGISTRAL: 
+        # Conservar el registro SI es el último del grupo (minutos NaN) 
+        # O SI la diferencia con el siguiente formulario es MAYOR a 15 minutos (es otra casa en el mismo barrio)
+        condicion_mantener = df['minutos_al_siguiente'].isna() | (df['minutos_al_siguiente'] > 15)
+        df = df[condicion_mantener].drop(columns=['fecha_hora_dt', 'minutos_al_siguiente']).reset_index(drop=True)
+    else:
+        # Respaldo simple solo si se corrompe por completo la columna de marca de tiempo (muy improbable)
+        df = df.drop_duplicates(subset=["nombre_propietario", "barrio_estandar"], keep="last")
 
-    def generar_llave_duplicado(row):
-        doc = str(row['documento']).strip()
-        if doc not in ["No registrado", "", "nan", "None", "0"]:
-            return f"doc_{doc}"
-        prop = str(row['nombre_propietario']).lower().strip()
-        barrio = str(row['barrio_estandar']).lower().strip()
-        return f"prop_{prop}_{barrio}_{row['lat_3dec']}_{row['lon_3dec']}"
-
-    df['llave_duplicado'] = df.apply(generar_llave_duplicado, axis=1)
-    df = df.drop_duplicates(subset=['llave_duplicado'], keep='last').reset_index(drop=True)
+    # -------------------------------------------------------------------
 
     colores_hab = {
         "Habitable": "#27ae60",
@@ -565,10 +572,9 @@ with tabs[2]:
             st_folium(m_dano, width="100%", height=400, key="mapa_danos")
 
 # -------------------------------------------------------------------
-# TAB 4: VULNERABILIDAD CON PALETA Y JERARQUÍA DE COLORES ESTRICTA
+# TAB 4: VULNERABILIDAD
 # -------------------------------------------------------------------
 with tabs[3]:
-    # PALETA DE COLORES OFICIAL
     color_ninos = "#16a085"
     color_mayores = "#2980b9"
     color_discap = "#8e44ad"
@@ -602,14 +608,10 @@ with tabs[3]:
             total_vuln = int(r["ninos"] + r["adultos_mayores"] + r["n_personas_discapacidad"] + r["n_mujeres_embarazadas"])
             doc_str = f"({r['documento']})" if r['documento'] != "No registrado" else ""
             
-            # JERARQUÍA DE COLOR PARA EL MAPA
-            color_marker = color_ninos # Por defecto verde (Niños)
-            if r['n_mujeres_embarazadas'] > 0:
-                color_marker = color_emb # Rojo (Prioridad máxima médica)
-            elif r['n_personas_discapacidad'] > 0:
-                color_marker = color_discap # Morado
-            elif r['adultos_mayores'] > 0:
-                color_marker = color_mayores # Azul
+            color_marker = color_ninos 
+            if r['n_mujeres_embarazadas'] > 0: color_marker = color_emb 
+            elif r['n_personas_discapacidad'] > 0: color_marker = color_discap 
+            elif r['adultos_mayores'] > 0: color_marker = color_mayores 
             
             html_p = f"""
             <div style='min-width:200px; font-family:sans-serif;'>
@@ -640,7 +642,6 @@ with tabs[3]:
         df_v = df_v.rename(columns={"ninos": "Niños y Niñas", "adultos_mayores": "Adultos Mayores", "n_personas_discapacidad": "Personas con Discapacidad", "n_mujeres_embarazadas": "Mujeres Embarazadas"})
         df_v_melt = df_v.melt(id_vars=["barrio_estandar"], var_name="Grupo", value_name="Total")
         
-        # DICCIONARIO PARA FORZAR LOS COLORES EN LA GRÁFICA DE BARRAS
         color_map_vuln = {
             "Niños y Niñas": color_ninos,
             "Adultos Mayores": color_mayores,
