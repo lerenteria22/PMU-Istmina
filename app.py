@@ -48,7 +48,7 @@ st.markdown("""
         letter-spacing: 0.5px !important;
     }
 
-    /* BARRA DE NAVEGACIÓN (Del mismo color del Header) */
+    /* BARRA DE NAVEGACIÓN (Mismo color turquesa) */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #1abc9c !important;
         padding: 0px 15px 4px 15px !important;
@@ -56,7 +56,7 @@ st.markdown("""
         border-bottom: none !important;
     }
 
-    /* BOTONES DE PESTAÑAS (Texto blanco sobre fondo turquesa) */
+    /* BOTONES DE PESTAÑAS */
     .stTabs [data-baseweb="tab"] {
         background-color: #1abc9c !important;
         border: none !important;
@@ -72,7 +72,7 @@ st.markdown("""
         opacity: 0.95 !important;
     }
 
-    /* PESTAÑA ACTIVA (Verde oscuro con subrayado amarillo) */
+    /* PESTAÑA ACTIVA */
     .stTabs [aria-selected="true"] {
         background-color: #16a085 !important;
         border-bottom: 4px solid #f1c40f !important;
@@ -84,7 +84,29 @@ st.markdown("""
         opacity: 1.0 !important;
     }
 
-    /* LETRAS NEGRAS EN CONTAINERS Y CAMPOS */
+    /* ESTILO INTEGRADO PARA TODOS LOS BOTONES (Sigue la paleta del Header) */
+    div.stButton > button, div.stButton > button:focus, div.stButton > button:active {
+        background-color: #1abc9c !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 4px !important;
+        font-weight: 700 !important;
+        font-size: 14px !important;
+        padding: 8px 16px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    div.stButton > button:hover {
+        background-color: #16a085 !important;
+        color: #ffffff !important;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.15) !important;
+    }
+    div.stButton > button p, div.stButton > button span {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    /* TEXTOS OSCUROS EN CONTENEDORES */
     div[data-testid="stVerticalBlock"] p,
     div[data-testid="stVerticalBlock"] span,
     div[data-testid="stVerticalBlock"] label,
@@ -94,7 +116,7 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* TABLAS Y DATAFRAMES BLANCOS CON TEXTO NEGRO */
+    /* TABLAS BLANCAS CON TEXTO OSCURO */
     div[data-testid="stDataFrame"], 
     div[data-testid="stTable"],
     div[data-testid="stDataFrame"] div,
@@ -103,7 +125,7 @@ st.markdown("""
         color: #2c3e50 !important;
     }
 
-    /* CAJAS DE TEXTO Y DESPLEGABLES BLANCOS */
+    /* CAJAS DE ENTRADA Y DESPLEGABLES BLANCOS */
     input, div[data-baseweb="input"], div[data-baseweb="select"] > div, textarea {
         background-color: #ffffff !important;
         color: #2c3e50 !important;
@@ -152,7 +174,7 @@ st.markdown("""
         color: white !important;
     }
 
-    /* CONTENEDORES BLANCOS */
+    /* CONTENEDORES BLANCOS DE GRÁFICOS */
     div[data-testid="stVerticalBlock"] > div[data-testid="stBlock"] {
         background-color: #ffffff !important;
         border-radius: 4px;
@@ -202,18 +224,30 @@ def render_value_box(numero, titulo, color_bg, icono_fa):
     </div>
     """, unsafe_allow_html=True)
 
-# Estilizado para gráficos de Plotly
-def aplicar_estilo_plotly(fig, height=350):
+# Estilizado estricto para gráficos de Plotly
+def aplicar_estilo_plotly(fig, height=320):
     fig.update_layout(
-        template="plotly_white",
         paper_bgcolor="#ffffff",
         plot_bgcolor="#ffffff",
-        font=dict(color="#2c3e50", family="Lato, sans-serif", size=12),
-        margin=dict(l=10, r=10, t=10, b=10),
+        font=dict(color="#2c3e50", family="sans-serif", size=12),
+        margin=dict(l=15, r=15, t=15, b=15),
         height=height,
-        xaxis=dict(gridcolor="#e5e8e8", zerolinecolor="#e5e8e8", tickfont=dict(color="#2c3e50"), title_font=dict(color="#2c3e50")),
-        yaxis=dict(gridcolor="#e5e8e8", zerolinecolor="#e5e8e8", tickfont=dict(color="#2c3e50"), title_font=dict(color="#2c3e50")),
-        legend=dict(font=dict(color="#2c3e50"))
+        xaxis=dict(
+            gridcolor="#e5e8e8",
+            zerolinecolor="#e5e8e8",
+            tickfont=dict(color="#2c3e50"),
+            title_font=dict(color="#2c3e50", size=12)
+        ),
+        yaxis=dict(
+            gridcolor="#e5e8e8",
+            zerolinecolor="#e5e8e8",
+            tickfont=dict(color="#2c3e50"),
+            title_font=dict(color="#2c3e50", size=12)
+        ),
+        legend=dict(
+            font=dict(color="#2c3e50"),
+            bg_color="rgba(255,255,255,0.8)"
+        )
     )
     return fig
 
@@ -409,7 +443,7 @@ with tabs[0]:
         fig_hab = px.bar(df_hab, x="Cantidad", y="Estado", orientation='h', color="Estado", color_discrete_map=colores_habitabilidad)
         fig_hab = aplicar_estilo_plotly(fig_hab, height=320)
         fig_hab.update_layout(showlegend=False, yaxis={'categoryorder':'total ascending'}, xaxis_title="Número de Viviendas", yaxis_title="")
-        st.plotly_chart(fig_hab, use_container_width=True)
+        st.plotly_chart(fig_hab, use_container_width=True, theme=None)
 
     with g2:
         st.markdown('<span class="chart-title">Habitabilidad Consolidada por Barrio</span>', unsafe_allow_html=True)
@@ -419,7 +453,7 @@ with tabs[0]:
         fig_barrio = px.bar(df_barrio, x="n", y="barrio_etiqueta", color="clasificacion_habitabilidad", orientation='h', color_discrete_map=colores_habitabilidad, labels={"n": "Cantidad de Viviendas", "barrio_etiqueta": ""})
         fig_barrio = aplicar_estilo_plotly(fig_barrio, height=320)
         fig_barrio.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Cantidad de Viviendas", legend_title_text="")
-        st.plotly_chart(fig_barrio, use_container_width=True)
+        st.plotly_chart(fig_barrio, use_container_width=True, theme=None)
 
     st.markdown('<span class="chart-title">Evolución Temporal de Reportes (Línea de Tiempo)</span>', unsafe_allow_html=True)
     df_tiempo = df.groupby("fecha_corta").size().reset_index(name="n")
@@ -428,7 +462,7 @@ with tabs[0]:
     fig_tiempo.add_trace(go.Scatter(x=df_tiempo["fecha_corta"], y=df_tiempo["n"], mode="lines+markers", line=dict(color="#e74c3c", width=2.5), marker=dict(size=7, color="#e74c3c"), name="Tendencia"))
     fig_tiempo = aplicar_estilo_plotly(fig_tiempo, height=220)
     fig_tiempo.update_layout(showlegend=False, xaxis_title="Fecha de Registro", yaxis_title="Evaluaciones")
-    st.plotly_chart(fig_tiempo, use_container_width=True)
+    st.plotly_chart(fig_tiempo, use_container_width=True, theme=None)
 
 # TAB 2: VISOR GEOESPACIAL
 with tabs[1]:
@@ -485,7 +519,7 @@ with tabs[1]:
             fig_viva = px.histogram(df_m, x="barrio_estandar", color="clasificacion_habitabilidad", color_discrete_map=colores_habitabilidad, labels={"barrio_estandar": "", "count": "Cantidad de Viviendas Filtradas"})
             fig_viva = aplicar_estilo_plotly(fig_viva, height=380)
             fig_viva.update_layout(yaxis_title="Cantidad de Viviendas Filtradas", xaxis_title="")
-            st.plotly_chart(fig_viva, use_container_width=True)
+            st.plotly_chart(fig_viva, use_container_width=True, theme=None)
 
 # TAB 3: ANÁLISIS DE DAÑOS
 with tabs[2]:
@@ -511,7 +545,7 @@ with tabs[2]:
                     fig_sev = px.bar(df_sev.groupby(["Elemento", "Nivel"]).size().reset_index(name="n"), x="n", y="Elemento", color="Nivel", orientation='h', color_discrete_map=colores_dano)
                     fig_sev = aplicar_estilo_plotly(fig_sev, height=320)
                     fig_sev.update_layout(xaxis_title="", yaxis_title="")
-                    st.plotly_chart(fig_sev, use_container_width=True)
+                    st.plotly_chart(fig_sev, use_container_width=True, theme=None)
 
         with cd2:
             st.markdown('<span class="chart-title">Señales Visibles Frecuentes</span>', unsafe_allow_html=True)
@@ -524,7 +558,7 @@ with tabs[2]:
                     fig_sn = px.bar(df_sn["Alerta"].value_counts().reset_index(name="n"), x="n", y="Alerta", orientation='h', color_discrete_sequence=["#34495e"])
                     fig_sn = aplicar_estilo_plotly(fig_sn, height=320)
                     fig_sn.update_layout(showlegend=False, xaxis_title="", yaxis_title="")
-                    st.plotly_chart(fig_sn, use_container_width=True)
+                    st.plotly_chart(fig_sn, use_container_width=True, theme=None)
 
     with sub_d2:
         col_dfiltros, col_dmapa = st.columns([3, 7])
@@ -567,7 +601,7 @@ with tabs[3]:
     fig_v = px.bar(df_v_melt[df_v_melt["Total"] > 0], x="Total", y="barrio_estandar", color="Grupo", barmode="group", orientation='h', color_discrete_sequence=px.colors.sequential.Viridis)
     fig_v = aplicar_estilo_plotly(fig_v, height=350)
     fig_v.update_layout(xaxis_title="Cantidad de Personas", yaxis_title="")
-    st.plotly_chart(fig_v, use_container_width=True)
+    st.plotly_chart(fig_v, use_container_width=True, theme=None)
 
 # TAB 5: LOGÍSTICA Y RESCATE
 with tabs[4]:
@@ -579,7 +613,7 @@ with tabs[4]:
     fig_n = px.bar(df_n, x="Total", y="Necesidad", orientation='h', color_discrete_sequence=["#34495e"])
     fig_n = aplicar_estilo_plotly(fig_n, height=300)
     fig_n.update_layout(showlegend=False, xaxis_title="Viviendas que lo solicitan", yaxis_title="")
-    st.plotly_chart(fig_n, use_container_width=True)
+    st.plotly_chart(fig_n, use_container_width=True, theme=None)
 
     st.markdown('<span class="chart-title">🚨 Triage Urgente: Familias Inhabitables con Población Vulnerable</span>', unsafe_allow_html=True)
     df_t = df[(df["clasificacion_habitabilidad"].str.contains("colapso|no habitable", case=False, na=False)) & ((df["ninos"] > 0) | (df["adultos_mayores"] > 0) | (df["n_personas_discapacidad"] > 0) | (df["n_mujeres_embarazadas"] > 0))]
