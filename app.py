@@ -10,7 +10,7 @@ import unicodedata
 from datetime import datetime
 
 # ===================================================================
-# CONFIGURACIÓN DE PÁGINA Y ESTILOS
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTADOS DE SESIÓN
 # ===================================================================
 st.set_page_config(
     page_title="PMU - Sala de Crisis Istmina",
@@ -19,8 +19,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Control de Autenticación
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
+
+# Estado para Redireccionamiento a Expedientes
+if "expediente_buscado" not in st.session_state:
+    st.session_state["expediente_buscado"] = ""
 
 if not st.session_state["autenticado"]:
     st.title("🚨 PMU - Sala de Crisis Istmina")
@@ -34,9 +39,10 @@ if not st.session_state["autenticado"]:
     st.stop()
 
 # ===================================================================
-# LIMPIADOR DE ENCABEZADOS IDENTICO A R (janitor::clean_names)
+# 2. FUNCIONES AUXILIARES Y LIMPIEZA
 # ===================================================================
 def clean_col(name):
+    """Limpia tildes, eñes y caracteres especiales de los encabezados."""
     name = unicodedata.normalize('NFD', str(name))
     name = ''.join(c for c in name if unicodedata.category(c) != 'Mn')
     name = name.lower().strip()
@@ -45,20 +51,21 @@ def clean_col(name):
     return name
 
 def buscar_columna(df_cols, palabras_clave):
+    """Busca una columna por coincidencias de palabras clave."""
     for col in df_cols:
         if any(kw in col for kw in palabras_clave):
             return col
     return None
 
 def check_cond_cols(df, palabras_clave, valores_objetivo):
-    """Evalua condiciones sobre una lista de columnas garantizando un DataFrame de Pandas"""
+    """Garantiza evaluación bidimensional sobre DataFrames evitando errores de Series."""
     cols_coincidentes = [c for c in df.columns if any(kw in c for kw in palabras_clave)]
     if not cols_coincidentes:
         return pd.Series(False, index=df.index)
     return df[cols_coincidentes].isin(valores_objetivo).any(axis=1)
 
 # ===================================================================
-# CARGA Y TRATAMIENTO DE DATOS (REFRESCO CADA 30 SEGUNDOS)
+# 3. CARGA Y TRATAMIENTO DE DATOS (REFRESCO CADA 30 SEGUNDOS)
 # ===================================================================
 @st.cache_data(ttl=30)
 def cargar_datos():
@@ -72,7 +79,14 @@ def cargar_datos():
     if df.empty:
         return pd.DataFrame(), {}
 
-    # Mapeo de columnas principales
+    # -------------------------------------------------------------------
+    # DEDUPLICACIÓN DE REGISTROS (Conserva el último reporte registrado)
+    # -------------------------------------------------------------------
+    cols_sin_timestamp = [c for c in df.columns if c not in ["marca_temporal", "timestamp", "fecha", "fecha_corta"]]
+    if cols_sin_timestamp:
+        df = df.drop_duplicates(subset=cols_sin_timestamp, keep="last").reset_index(drop=True)
+
+    # Mapeo flexible de columnas
     col_barrio = buscar_columna(df.columns, ["barrio", "vereda"]) or "barrio_vereda"
     col_habitabilidad = buscar_columna(df.columns, ["habitabilidad", "clasificacion"]) or "clasificacion_habitabilidad"
     col_habitantes = buscar_columna(df.columns, ["total_habitantes", "habitantes", "personas"]) or "total_habitantes"
@@ -85,7 +99,7 @@ def cargar_datos():
     col_necesidades = buscar_columna(df.columns, ["necesidad", "requiere"]) or "necesidades_inmediatas"
     col_coords = buscar_columna(df.columns, ["coordenadas", "gps", "ubicacion"]) or "coordenadas_gps"
 
-    # Homologación de variables
+    # Estandarización de variables
     df["barrio_vereda"] = df[col_barrio] if col_barrio in df.columns else "No registrado"
     df["clasificacion_habitabilidad"] = df[col_habitabilidad] if col_habitabilidad in df.columns else "Sin Clasificar"
     df["total_habitantes"] = pd.to_numeric(df[col_habitantes], errors='coerce').fillna(0).astype(int) if col_habitantes in df.columns else 0
@@ -113,7 +127,7 @@ def cargar_datos():
         df["lat"] = 5.161
         df["lon"] = -76.681
 
-    # Reglas ortográficas de Barrios y Sectores
+    # Homologación ortográfica de Barrios
     def estandarizar_barrio(txt):
         txt = str(txt).lower().strip()
         if re.search(r"eduardo|santo|pep", txt): return "Eduardo Santos (La Pepé)"
@@ -128,18 +142,7 @@ def cargar_datos():
         elif re.search(r"pueblo|nuevo|meseta", txt): return "Pueblo Nuevo"
         return txt.title() if txt not in ["nan", ""] else "No Registrado"
 
-    def estandarizar_sector(txt):
-        txt = str(txt).lower().strip()
-        if "genoveva" in txt: return "Santa Genoveva"
-        elif "meseta" in txt: return "La Meseta"
-        elif re.search(r"lavanderia|lavandería|lavander", txt): return "Lavandería"
-        elif re.search(r"\b70\b|la 70|setenta", txt): return "La 70"
-        elif re.search(r"antuco|chorro", txt): return "Chorro de Antuco"
-        elif re.search(r"chamblun|chamblún|chambl", txt): return "Chamblún"
-        return "Sin Sector Específico"
-
     df["barrio_estandar"] = df["barrio_vereda"].apply(estandarizar_barrio)
-    df["sector_especifico"] = df["barrio_vereda"].apply(estandarizar_sector)
 
     colores_hab = {
         "Habitable": "#27ae60",
@@ -152,7 +155,7 @@ def cargar_datos():
     }
     df["color_riesgo"] = df["clasificacion_habitabilidad"].map(colores_hab).fillna("#95a5a6")
 
-    # Banderas de Necesidades
+    # Banderas de Necesidades y Daños
     nec_str = df["necesidades_inmediatas"].astype(str).str.lower()
     df["nec_cubierta"] = nec_str.str.contains("cubierta").astype(int)
     df["nec_materiales"] = nec_str.str.contains("materiales").astype(int)
@@ -162,7 +165,6 @@ def cargar_datos():
     df["nec_alojamiento"] = nec_str.str.contains("alojamiento").astype(int)
     df["nec_alimento"] = nec_str.str.contains("alimenta").astype(int)
 
-    # Identificación segura de Daños (evitando errores de Pandas Series/DataFrame)
     val_criticos = ["Severo", "Colapso", "Si", "Sí", "si", "sí"]
     val_mod_crit = ["Moderado", "Severo", "Colapso", "Si", "Sí", "si", "sí"]
 
@@ -182,16 +184,20 @@ def cargar_datos():
 df, colores_habitabilidad = cargar_datos()
 
 if df.empty:
-    st.error("No se pudieron cargar los datos de Google Sheets. Verifique el enlace público.")
+    st.error("No se pudieron cargar los datos de Google Sheets. Verifique la conexión.")
     st.stop()
 
 # ===================================================================
-# INTERFAZ DENTRO DE LA SALA DE CRISIS
+# 4. SALA DE CRISIS INTERACTIVA
 # ===================================================================
 st.title("🚨 PMU - Sala de Crisis Istmina")
+st.caption("Sincronización automática con Google Sheets cada 30 segundos")
+
 tabs = st.tabs(["📊 Mando Unificado", "🗺️ Visor Geoespacial", "🏗️ Análisis de Daños", "👶 Vulnerabilidad", "📦 Logística y Rescate", "📂 Expedientes"])
 
+# -------------------------------------------------------------------
 # TAB 1: MANDO UNIFICADO
+# -------------------------------------------------------------------
 with tabs[0]:
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Viviendas Evaluadas", len(df))
@@ -225,7 +231,9 @@ with tabs[0]:
     fig_tiempo.update_traces(line_color="#e74c3c")
     st.plotly_chart(fig_tiempo, use_container_width=True)
 
-# TAB 2: VISOR GEOESPACIAL
+# -------------------------------------------------------------------
+# TAB 2: VISOR GEOESPACIAL (CON REDIRECCIÓN DIRECTA)
+# -------------------------------------------------------------------
 with tabs[1]:
     col_f, col_m = st.columns([1, 2])
     with col_f:
@@ -238,7 +246,13 @@ with tabs[1]:
         if estado_sel: df_m = df_m[df_m["clasificacion_habitabilidad"].isin(estado_sel)]
 
         st.subheader("📋 Padrón Filtrado")
-        st.dataframe(df_m[["nombre_propietario", "barrio_estandar", "clasificacion_habitabilidad", "total_habitantes"]], height=250)
+        st.dataframe(df_m[["nombre_propietario", "barrio_estandar", "clasificacion_habitabilidad", "total_habitantes"]], height=200)
+
+        propietario_sel = st.selectbox("Ver Expediente de:", options=["-- Seleccionar --"] + sorted(df_m["nombre_propietario"].unique().tolist()))
+        if propietario_sel != "-- Seleccionar --":
+            if st.button("📂 Abrir Expediente Completo", key="btn_exp_mapa"):
+                st.session_state["expediente_buscado"] = propietario_sel
+                st.success(f"Cargado expediente de {propietario_sel}. Pasa a la pestaña 'Expedientes'.")
 
     with col_m:
         st.subheader("🗺️ Mapa Interactivo")
@@ -256,7 +270,9 @@ with tabs[1]:
             ).add_to(m)
         st_folium(m, width="100%", height=500)
 
+# -------------------------------------------------------------------
 # TAB 3: ANÁLISIS DE DAÑOS
+# -------------------------------------------------------------------
 with tabs[2]:
     d1, d2, d3, d4 = st.columns(4)
     d1.metric("Riesgo Estructural Crítico", int(df["es_riesgo_estructural"].sum()))
@@ -294,7 +310,9 @@ with tabs[2]:
             else:
                 st.info("Sin alertas visibles confirmadas.")
 
+# -------------------------------------------------------------------
 # TAB 4: VULNERABILIDAD
+# -------------------------------------------------------------------
 with tabs[3]:
     v1, v2, v3, v4 = st.columns(4)
     v1.metric("Total Niños y Niñas", int(df["ninos"].sum()))
@@ -308,7 +326,9 @@ with tabs[3]:
     fig_v = px.bar(df_v.melt(id_vars=["barrio_estandar"], var_name="Grupo", value_name="Total"), x="Total", y="barrio_estandar", color="Grupo", barmode="group", orientation='h')
     st.plotly_chart(fig_v, use_container_width=True)
 
-# TAB 5: LOGÍSTICA Y RESCATE
+# -------------------------------------------------------------------
+# TAB 5: LOGÍSTICA Y RESCATE (CON REDIRECCIÓN DIRECTA)
+# -------------------------------------------------------------------
 with tabs[4]:
     st.subheader("Matriz de Necesidades Inmediatas Solicitadas")
     df_n = pd.DataFrame({
@@ -322,11 +342,33 @@ with tabs[4]:
     df_t = df[(df["clasificacion_habitabilidad"].str.contains("colapso|no habitable", case=False, na=False)) & ((df["ninos"] > 0) | (df["adultos_mayores"] > 0) | (df["n_personas_discapacidad"] > 0))]
     st.dataframe(df_t[["barrio_estandar", "nombre_propietario", "telefono", "clasificacion_habitabilidad", "ninos", "adultos_mayores", "n_personas_discapacidad", "necesidades_inmediatas"]], use_container_width=True)
 
-# TAB 6: EXPEDIENTES
+    if not df_t.empty:
+        triage_sel = st.selectbox("Atender caso urgente de:", options=["-- Seleccionar --"] + sorted(df_t["nombre_propietario"].unique().tolist()))
+        if triage_sel != "-- Seleccionar --":
+            if st.button("📂 Abrir Expediente de Emergencia", key="btn_exp_triage"):
+                st.session_state["expediente_buscado"] = triage_sel
+                st.success(f"Caso de {triage_sel} seleccionado. Ve a la pestaña 'Expedientes'.")
+
+# -------------------------------------------------------------------
+# TAB 6: EXPEDIENTES (RECEPTOR INTELIGENTE DE BÚSQUEDAS)
+# -------------------------------------------------------------------
 with tabs[5]:
     st.subheader("📂 Base de Datos Completa de Evaluación")
-    b = st.text_input("🔍 Buscar por Nombre de Propietario o Barrio:")
+
+    col_search, col_clean = st.columns([4, 1])
+    with col_search:
+        busqueda = st.text_input(
+            "🔍 Buscar por Nombre de Propietario o Barrio:",
+            value=st.session_state["expediente_buscado"]
+        )
+    with col_clean:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Limpiar Filtro"):
+            st.session_state["expediente_buscado"] = ""
+            st.rerun()
+
     df_e = df.copy()
-    if b:
-        df_e = df_e[df_e["nombre_propietario"].astype(str).str.contains(b, case=False) | df_e["barrio_estandar"].astype(str).str.contains(b, case=False)]
+    if busqueda:
+        df_e = df_e[df_e["nombre_propietario"].astype(str).str.contains(busqueda, case=False) | df_e["barrio_estandar"].astype(str).str.contains(busqueda, case=False)]
+
     st.dataframe(df_e, use_container_width=True)
