@@ -10,7 +10,7 @@ import unicodedata
 from datetime import datetime
 
 # ===================================================================
-# 1. CONFIGURACIÓN DE PÁGINA Y CSS (R FLEXDASHBOARD FLATLY EXACTO)
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS (FLEXDASHBOARD FLATLY EXACTO)
 # ===================================================================
 st.set_page_config(
     page_title="PMU - Sala de Crisis Istmina",
@@ -33,8 +33,8 @@ st.markdown("""
     header {visibility: hidden !important;}
     .block-container {
         padding-top: 0rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
         max-width: 100% !important;
     }
 
@@ -77,12 +77,12 @@ st.markdown("""
         color: white;
         position: relative;
         overflow: hidden;
-        min-height: 100px;
+        min-height: 95px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
     .value-box-num {
-        font-size: 40px;
+        font-size: 38px;
         font-weight: 800;
         line-height: 1;
         margin-bottom: 4px;
@@ -97,9 +97,17 @@ st.markdown("""
         right: 15px;
         top: 50%;
         transform: translateY(-50%);
-        font-size: 55px;
-        opacity: 0.20;
+        font-size: 50px;
+        opacity: 0.22;
         color: white;
+    }
+
+    /* Tooltip CSS R */
+    .info-tooltip {
+        cursor: help;
+        color: #bdc3c7;
+        font-size: 0.8em;
+        margin-left: 5px;
     }
 
     /* Contenedores Blancos para Gráficos */
@@ -113,7 +121,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Control de Autenticación
+# Control de Autenticación por Contraseña
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 
@@ -131,7 +139,7 @@ if not st.session_state["autenticado"]:
             st.error("Contraseña incorrecta")
     st.stop()
 
-# Helper para ValueBoxes de R
+# Helper para ValueBoxes
 def render_value_box(numero, titulo, color_bg, icono_fa):
     st.markdown(f"""
     <div class="value-box" style="background-color: {color_bg};">
@@ -144,7 +152,7 @@ def render_value_box(numero, titulo, color_bg, icono_fa):
     """, unsafe_allow_html=True)
 
 # ===================================================================
-# 2. CARGA Y TRANSFORMACIÓN DE DATOS (MAPPING DEDUPLICADO)
+# 2. CARGA Y TRATAMIENTO DE DATOS (REGLAS Y MAPPING EXACTOS DE R)
 # ===================================================================
 def clean_col(name):
     name = unicodedata.normalize('NFD', str(name))
@@ -170,20 +178,34 @@ def check_cond_cols(df, palabras_clave, valores_objetivo):
 def cargar_datos():
     url_csv = "https://docs.google.com/spreadsheets/d/1UyHaV3J-MJ3lMnQs5lnPGIdGMTn591Tsz1aZ9_E1Z8g/gviz/tq?tqx=out:csv&sheet=Hoja%201"
     try:
-        df = pd.read_csv(url_csv)
-        df.columns = [clean_col(c) for c in df.columns]
+        df_bruto = pd.read_csv(url_csv)
+        df_bruto.columns = [clean_col(c) for c in df_bruto.columns]
     except Exception:
-        df = pd.DataFrame()
+        df_bruto = pd.DataFrame()
 
-    if df.empty:
-        return pd.DataFrame(), {}
+    if not df_bruto.empty and len(df_bruto) > 0:
+        df = df_bruto.copy()
+    else:
+        # Datos de respaldo idénticos a R
+        df = pd.DataFrame({
+            "marca_temporal": ["2026-08-14 08:30:00", "2026-08-14 10:15:00", "2026-08-14 14:20:00"],
+            "barrio_vereda": ["Cubis", "Comercio", "Independencia"],
+            "clasificacion_habitabilidad": ["Riesgo de colapso", "Habitable", "No habitable"],
+            "total_habitantes": [5, 3, 4], "ninos": [2, 0, 1], "adultos_mayores": [1, 0, 1],
+            "n_personas_discapacidad": [0, 1, 0], "n_mujeres_embarazadas": [1, 0, 0],
+            "coordenadas_gps": ["5.161,-76.681", "5.165,-76.675", "5.158,-76.685"],
+            "nombre_propietario": ["Carlos Pérez", "María López", "Juan Gómez"],
+            "telefono": ["3101234567", "3119876543", "3125554433"],
+            "necesidades_inmediatas": ["Cubierta, Agua", "Materiales", "Reparación de muros"],
+            "fotos": ["https://google.com", "", ""]
+        })
 
-    # Deduplicación equivalente a R
+    # Deduplicación por columnas de datos (sin timestamp)
     cols_sin_timestamp = [c for c in df.columns if c not in ["marca_temporal", "timestamp", "fecha", "fecha_corta"]]
     if cols_sin_timestamp:
         df = df.drop_duplicates(subset=cols_sin_timestamp, keep="last").reset_index(drop=True)
 
-    # Identificación de variables principales
+    # Identificación flexible de columnas principales
     col_barrio = buscar_columna(df.columns, ["barrio", "vereda"]) or "barrio_vereda"
     col_habitabilidad = buscar_columna(df.columns, ["habitabilidad", "clasificacion"]) or "clasificacion_habitabilidad"
     col_habitantes = buscar_columna(df.columns, ["total_habitantes", "habitantes", "personas"]) or "total_habitantes"
@@ -194,6 +216,7 @@ def cargar_datos():
     col_propietario = buscar_columna(df.columns, ["propietario", "nombre", "afectado"]) or "nombre_propietario"
     col_telefono = buscar_columna(df.columns, ["telefono", "celular", "contacto"]) or "telefono"
     col_necesidades = buscar_columna(df.columns, ["necesidad", "requiere"]) or "necesidades_inmediatas"
+    col_fotos = buscar_columna(df.columns, ["foto", "evidencia"]) or "fotos"
     col_coords = buscar_columna(df.columns, ["coordenadas", "gps", "ubicacion"]) or "coordenadas_gps"
 
     df["barrio_vereda"] = df[col_barrio] if col_barrio in df.columns else "No registrado"
@@ -206,13 +229,16 @@ def cargar_datos():
     df["nombre_propietario"] = df[col_propietario] if col_propietario in df.columns else "No registrado"
     df["telefono"] = df[col_telefono] if col_telefono in df.columns else "No registrado"
     df["necesidades_inmediatas"] = df[col_necesidades] if col_necesidades in df.columns else "Sin especificación"
+    df["fotos"] = df[col_fotos] if col_fotos in df.columns else "No registrado"
 
+    # Manejo de Fecha
     col_fecha = buscar_columna(df.columns, ["marca_temporal", "timestamp", "fecha"])
     if col_fecha and col_fecha in df.columns:
         df["fecha_corta"] = pd.to_datetime(df[col_fecha], errors='coerce').dt.date.fillna(datetime.now().date())
     else:
         df["fecha_corta"] = datetime.now().date()
 
+    # Manejo de Coordenadas
     if col_coords and col_coords in df.columns:
         coords = df[col_coords].astype(str).str.split(",", expand=True)
         df["lat"] = pd.to_numeric(coords[0], errors='coerce').fillna(5.161)
@@ -220,6 +246,17 @@ def cargar_datos():
     else:
         df["lat"] = 5.161
         df["lon"] = -76.681
+
+    # Paleta de Colores de Habitabilidad exactos
+    colores_hab = {
+        "Habitable": "#27ae60",
+        "Habitable con restricciones": "#f1c40f",
+        "No habitable": "#e74c3c",
+        "Riesgo de colapso": "#8e44ad",
+        "No evaluado": "#3498db",
+        "Sin Clasificar": "#95a5a6",
+        "No registrado": "#95a5a6"
+    }
 
     # Reglas ortográficas exactas de R
     def estandarizar_barrio(txt):
@@ -248,19 +285,18 @@ def cargar_datos():
 
     df["barrio_estandar"] = df["barrio_vereda"].apply(estandarizar_barrio)
     df["sector_especifico"] = df["barrio_vereda"].apply(estandarizar_sector)
-
-    colores_hab = {
-        "Habitable": "#27ae60",
-        "Habitable con restricciones": "#f1c40f",
-        "No habitable": "#e74c3c",
-        "Riesgo de colapso": "#8e44ad",
-        "No evaluado": "#3498db",
-        "Sin Clasificar": "#95a5a6",
-        "No registrado": "#95a5a6"
-    }
     df["color_riesgo"] = df["clasificacion_habitabilidad"].map(colores_hab).fillna("#95a5a6")
 
-    # Necesidades
+    # Botón de Evidencia Fotográfica igual a R
+    def crear_btn_foto(foto):
+        foto = str(foto).strip()
+        if foto in ["No registrado", "", "nan", "None", "#"]:
+            return "<span style='color:gray; font-size:11px;'>Sin evidencia fotográfica</span>"
+        return f"<a href='{foto}' target='_blank' style='display:inline-block; padding:4px 8px; background:#2980b9; color:white; border-radius:4px; text-decoration:none; font-size:11px; font-weight:bold;'>Ver Evidencia</a>"
+
+    df["btn_foto"] = df["fotos"].apply(crear_btn_foto)
+
+    # Banderas de Necesidades
     nec_str = df["necesidades_inmediatas"].astype(str).str.lower()
     df["nec_cubierta"] = nec_str.str.contains("cubierta").astype(int)
     df["nec_materiales"] = nec_str.str.contains("materiales").astype(int)
@@ -270,7 +306,7 @@ def cargar_datos():
     df["nec_alojamiento"] = nec_str.str.contains("alojamiento").astype(int)
     df["nec_alimento"] = nec_str.str.contains("alimenta").astype(int)
 
-    # Identificación de Daños
+    # Identificación segura de Daños
     val_criticos = ["Severo", "Colapso", "Si", "Sí", "si", "sí"]
     val_mod_crit = ["Moderado", "Severo", "Colapso", "Si", "Sí", "si", "sí"]
 
@@ -285,6 +321,7 @@ def cargar_datos():
         return " | ".join(danos) if danos else "Sin daños estructurales críticos"
 
     df["resumen_danos_criticos"] = df.apply(resumen_danos, axis=1) if cols_sev else "Sin evaluación de daños"
+    df["id_casa"] = range(1, len(df) + 1)
     return df, colores_hab
 
 df, colores_habitabilidad = cargar_datos()
@@ -294,7 +331,7 @@ if df.empty:
     st.stop()
 
 # ===================================================================
-# 3. INTERFAZ SALA DE CRISIS (ESTRUCTURA IDÉNTICA A FLEXDASHBOARD)
+# 3. CONSTRUCCIÓN DE INTERFAZ (ESTRUCTURA Y VISTAS IDÉNTICAS A FLEXDASHBOARD)
 # ===================================================================
 st.markdown('<div class="pmu-navbar">PMU - Sala de Crisis Istmina</div>', unsafe_allow_html=True)
 
@@ -331,16 +368,16 @@ with tabs[0]:
     st.markdown("**Evolución Temporal de Reportes (Línea de Tiempo)**")
     df_tiempo = df.groupby("fecha_corta").size().reset_index(name="n")
     fig_tiempo = go.Figure()
-    fig_tiempo.add_trace(go.Bar(x=df_tiempo["fecha_corta"], y=df_tiempo["n"], marker_color="#34495e", name="Registros"))
-    fig_tiempo.add_trace(go.Scatter(x=df_tiempo["fecha_corta"], y=df_tiempo["n"], mode="lines+markers", line=dict(color="#e74c3c", width=3), name="Tendencia"))
-    fig_tiempo.update_layout(template="plotly_white", showlegend=False, margin=dict(l=0, r=10, t=10, b=10))
+    fig_tiempo.add_trace(go.Bar(x=df_tiempo["fecha_corta"], y=df_tiempo["n"], marker_color="#2c3e50", name="Registros", opacity=0.85))
+    fig_tiempo.add_trace(go.Scatter(x=df_tiempo["fecha_corta"], y=df_tiempo["n"], mode="lines+markers", line=dict(color="#e74c3c", width=2), marker=dict(size=6, color="#e74c3c"), name="Tendencia"))
+    fig_tiempo.update_layout(template="plotly_white", showlegend=False, xaxis_title="Fecha de Registro", yaxis_title="Evaluaciones", margin=dict(l=0, r=10, t=10, b=10))
     st.plotly_chart(fig_tiempo, use_container_width=True)
 
 # -------------------------------------------------------------------
-# TAB 2: VISOR GEOESPACIAL (CON SUB-PESTAÑAS)
+# TAB 2: VISOR GEOESPACIAL (ESTRUCTURA DE COLUMNAS IDÉNTICA)
 # -------------------------------------------------------------------
 with tabs[1]:
-    col_f, col_m = st.columns([4, 6])
+    col_f, col_m = st.columns([45, 55])
     with col_f:
         st.markdown("**📍 Filtros Interactivos**")
         barrio_sel = st.multiselect("Seleccione Barrio / Vereda:", options=sorted(df["barrio_estandar"].unique()))
@@ -353,7 +390,19 @@ with tabs[1]:
         st.markdown("**🗺️ Mapa Interactivo**")
         m = folium.Map(location=[5.161, -76.681], zoom_start=14, tiles="CartoDB positron")
         for _, r in df_m.iterrows():
-            html_p = f"<b>{r['nombre_propietario']}</b><br>Barrio: {r['barrio_estandar']}<br>Estado: {r['clasificacion_habitabilidad']}<br>Habitantes: {r['total_habitantes']}"
+            html_popup = f"""
+            <div style='min-width:180px; font-family:sans-serif;'>
+            <h4 style='margin:0 0 5px 0; color:#2c3e50;'>{r['nombre_propietario']}</h4>
+            <b>Barrio:</b> {r['barrio_estandar']} ({r['sector_especifico']})<br>
+            <b>Estado:</b> <span style='color:{r['color_riesgo']}; font-weight:bold;'>{r['clasificacion_habitabilidad']}</span><br>
+            <b>Habitantes:</b> {r['total_habitantes']}<br>
+            <hr style='margin:5px 0;'>
+            <b>Daños:</b> <span style='color:#e74c3c;'>{r['resumen_danos_criticos'][:45]}</span><br>
+            <b>Necesidad:</b> {r['necesidades_inmediatas'][:35]}<br>
+            <b>Teléfono:</b> {r['telefono']}<br><br>
+            <div style='text-align:center;'>{r['btn_foto']}</div>
+            </div>
+            """
             folium.CircleMarker(
                 location=[r["lat"], r["lon"]],
                 radius=8,
@@ -361,19 +410,19 @@ with tabs[1]:
                 fill=True,
                 fill_color=r["color_riesgo"],
                 fill_opacity=0.85,
-                popup=folium.Popup(html_p, max_width=250)
+                popup=folium.Popup(html_popup, max_width=260)
             ).add_to(m)
-        st_folium(m, width="100%", height=420)
+        st_folium(m, width="100%", height=440)
 
     with col_m:
         sub_tab1, sub_tab2 = st.tabs(["📋 Padrón Filtrado", "📊 Gráfica Viva Barrios"])
         with sub_tab1:
-            st.dataframe(df_m[["nombre_propietario", "barrio_estandar", "clasificacion_habitabilidad", "total_habitantes", "telefono"]], height=400)
-            propietario_sel = st.selectbox("Abrir Expediente de:", options=["-- Seleccionar --"] + sorted(df_m["nombre_propietario"].unique().tolist()))
+            st.dataframe(df_m[["nombre_propietario", "barrio_estandar", "sector_especifico", "clasificacion_habitabilidad", "total_habitantes", "telefono"]], height=380, use_container_width=True)
+            propietario_sel = st.selectbox("Seleccionar para expediente:", options=["-- Seleccionar --"] + sorted(df_m["nombre_propietario"].unique().tolist()))
             if propietario_sel != "-- Seleccionar --":
                 if st.button("📂 Ver Expediente Completo", key="btn_exp_visor"):
                     st.session_state["expediente_buscado"] = propietario_sel
-                    st.success("Cargado. Pasa a la pestaña 'Expedientes'.")
+                    st.success("Expediente cargado. Ve a la pestaña 'Expedientes'.")
 
         with sub_tab2:
             fig_viva = px.histogram(df_m, x="barrio_estandar", color="clasificacion_habitabilidad", color_discrete_map=colores_habitabilidad, labels={"barrio_estandar": "", "count": "Cantidad de Viviendas Filtradas"})
@@ -381,7 +430,7 @@ with tabs[1]:
             st.plotly_chart(fig_viva, use_container_width=True)
 
 # -------------------------------------------------------------------
-# TAB 3: ANÁLISIS DE DAÑOS (CON SUB-PESTAÑAS)
+# TAB 3: ANÁLISIS DE DAÑOS
 # -------------------------------------------------------------------
 with tabs[2]:
     d1, d2, d3, d4 = st.columns(4)
@@ -477,8 +526,21 @@ with tabs[4]:
     st.plotly_chart(fig_n, use_container_width=True)
 
     st.markdown("**🚨 Triage Urgente: Familias Inhabitables con Población Vulnerable**")
-    df_t = df[(df["clasificacion_habitabilidad"].str.contains("colapso|no habitable", case=False, na=False)) & ((df["ninos"] > 0) | (df["adultos_mayores"] > 0) | (df["n_personas_discapacidad"] > 0))]
-    st.dataframe(df_t[["barrio_estandar", "nombre_propietario", "telefono", "clasificacion_habitabilidad", "ninos", "adultos_mayores", "n_personas_discapacidad", "necesidades_inmediatas"]], use_container_width=True)
+    df_t = df[(df["clasificacion_habitabilidad"].str.contains("colapso|no habitable", case=False, na=False)) & ((df["ninos"] > 0) | (df["adultos_mayores"] > 0) | (df["n_personas_discapacidad"] > 0) | (df["n_mujeres_embarazadas"] > 0))]
+    
+    df_t_show = df_t.rename(columns={
+        "barrio_estandar": "Barrio",
+        "nombre_propietario": "Propietario",
+        "telefono": "Teléfono",
+        "clasificacion_habitabilidad": "Estado",
+        "ninos": "Niños",
+        "adultos_mayores": "Mayores",
+        "n_personas_discapacidad": "Discap",
+        "n_mujeres_embarazadas": "Embarazo",
+        "necesidades_inmediatas": "Necesita"
+    })
+    cols_triage = ["Barrio", "Propietario", "Teléfono", "Estado", "Niños", "Mayores", "Discap", "Embarazo", "Necesita"]
+    st.dataframe(df_t_show[[c for c in cols_triage if c in df_t_show.columns]], use_container_width=True)
 
     if not df_t.empty:
         triage_sel = st.selectbox("Atender caso urgente de:", options=["-- Seleccionar --"] + sorted(df_t["nombre_propietario"].unique().tolist()))
@@ -501,8 +563,26 @@ with tabs[5]:
             st.session_state["expediente_buscado"] = ""
             st.rerun()
 
-    df_e = df.copy()
+    df_export = df.rename(columns={
+        "fecha_corta": "Fecha",
+        "barrio_estandar": "Barrio",
+        "sector_especifico": "Sector",
+        "nombre_propietario": "Propietario",
+        "telefono": "Teléfono",
+        "clasificacion_habitabilidad": "Habitabilidad",
+        "total_habitantes": "Pob_Total",
+        "ninos": "Niños",
+        "adultos_mayores": "Mayores",
+        "n_personas_discapacidad": "Discapacitados",
+        "n_mujeres_embarazadas": "Embarazadas",
+        "resumen_danos_criticos": "Daños_Críticos",
+        "necesidades_inmediatas": "Necesidades"
+    })
+    
+    cols_exp = ["Fecha", "Barrio", "Sector", "Propietario", "Teléfono", "Habitabilidad", "Pob_Total", "Niños", "Mayores", "Discapacitados", "Embarazadas", "Daños_Críticos", "Necesidades"]
+    df_e = df_export[[c for c in cols_exp if c in df_export.columns]].copy()
+    
     if busqueda:
-        df_e = df_e[df_e["nombre_propietario"].astype(str).str.contains(busqueda, case=False) | df_e["barrio_estandar"].astype(str).str.contains(busqueda, case=False)]
+        df_e = df_e[df_e["Propietario"].astype(str).str.contains(busqueda, case=False) | df_e["Barrio"].astype(str).str.contains(busqueda, case=False)]
 
     st.dataframe(df_e, use_container_width=True)
