@@ -10,7 +10,7 @@ import unicodedata
 from datetime import datetime
 
 # ===================================================================
-# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS (FLEXDASHBOARD FLATLY)
 # ===================================================================
 st.set_page_config(
     page_title="PMU - Sala de Crisis Istmina",
@@ -37,6 +37,9 @@ st.markdown("""
     .stTabs [aria-selected="true"] { background-color: #16a085 !important; border-bottom: 4px solid #f1c40f !important; }
     .stTabs [aria-selected="true"] p, .stTabs [aria-selected="true"] span, .stTabs [aria-selected="true"] div { color: #ffffff !important; opacity: 1.0 !important; }
     
+    /* SUB-PESTAÑAS INTERNAS */
+    div[data-testid="stTab"] button p { color: #2c3e50 !important; font-weight: 700 !important; }
+    
     /* ESTILO INTEGRADO PARA TODOS LOS BOTONES */
     div.stButton > button, div.stButton > button:focus, div.stButton > button:active { background-color: #1abc9c !important; color: #ffffff !important; border: none !important; border-radius: 4px !important; font-weight: 700 !important; font-size: 14px !important; padding: 8px 16px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; transition: all 0.2s ease-in-out !important; }
     div.stButton > button:hover { background-color: #16a085 !important; color: #ffffff !important; box-shadow: 0 3px 6px rgba(0,0,0,0.15) !important; }
@@ -45,11 +48,18 @@ st.markdown("""
     /* TEXTOS OSCUROS EN CONTENEDORES */
     div[data-testid="stVerticalBlock"] p, div[data-testid="stVerticalBlock"] span, div[data-testid="stVerticalBlock"] label, [data-testid="stWidgetLabel"] p, .chart-title { color: #2c3e50 !important; font-weight: 700 !important; }
     
-    /* CAJAS DE ENTRADA Y DESPLEGABLES */
-    input, div[data-baseweb="input"], div[data-baseweb="select"] > div, textarea { background-color: #ffffff !important; color: #2c3e50 !important; border: 1px solid #bdc3c7 !important; border-radius: 4px !important; }
-    div[data-baseweb="select"] span, div[data-baseweb="select"] div { color: #2c3e50 !important; }
-    div[data-baseweb="popover"] div, div[role="listbox"] { background-color: #ffffff !important; color: #2c3e50 !important; }
+    /* TABLAS BLANCAS CON TEXTO OSCURO */
+    div[data-testid="stDataFrame"], div[data-testid="stTable"], div[data-testid="stDataFrame"] div, [data-testid="stElementToolbar"] { background-color: #ffffff !important; color: #2c3e50 !important; }
     
+    /* CORRECCIÓN DE CONTRASTE Y LEGIBILIDAD EN DESPLEGABLES (SELECT & MULTISELECT) */
+    div[data-baseweb="select"] > div { background-color: #ffffff !important; color: #2c3e50 !important; border: 1px solid #bdc3c7 !important; border-radius: 4px !important; }
+    div[data-baseweb="select"] span, div[data-baseweb="select"] div, div[data-baseweb="select"] input { color: #2c3e50 !important; font-weight: 600 !important; }
+    div[data-baseweb="popover"], div[data-baseweb="popover"] * { background-color: #ffffff !important; color: #2c3e50 !important; }
+    li[role="option"] { background-color: #ffffff !important; color: #2c3e50 !important; font-weight: 600 !important; }
+    li[role="option"]:hover, li[aria-selected="true"] { background-color: #eaeded !important; color: #16a085 !important; }
+    span[data-baseweb="tag"] { background-color: #1abc9c !important; }
+    span[data-baseweb="tag"] span { color: #ffffff !important; font-weight: 700 !important; }
+
     /* TARJETAS VALUEBOX */
     .value-box { border-radius: 4px; padding: 15px 20px; color: white !important; position: relative; overflow: hidden; min-height: 95px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; }
     .value-box-num { font-size: 38px; font-weight: 800; line-height: 1; margin-bottom: 4px; color: white !important; }
@@ -63,8 +73,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Control de Autenticación
-if "autenticado" not in st.session_state: st.session_state["autenticado"] = False
-if "expediente_buscado" not in st.session_state: st.session_state["expediente_buscado"] = ""
+if "autenticado" not in st.session_state:
+    st.session_state["autenticado"] = False
+
+if "expediente_buscado" not in st.session_state:
+    st.session_state["expediente_buscado"] = ""
 
 if not st.session_state["autenticado"]:
     st.markdown('<div class="pmu-navbar">🚨 PMU - Sala de Crisis Istmina</div>', unsafe_allow_html=True)
@@ -82,39 +95,49 @@ if not st.session_state["autenticado"]:
 def render_value_box(numero, titulo, color_bg, icono_fa):
     st.markdown(f"""
     <div class="value-box" style="background-color: {color_bg};">
-        <div><div class="value-box-num">{numero}</div><div class="value-box-title">{titulo}</div></div>
+        <div>
+            <div class="value-box-num">{numero}</div>
+            <div class="value-box-title">{titulo}</div>
+        </div>
         <i class="fa-solid {icono_fa} value-box-icon"></i>
     </div>
     """, unsafe_allow_html=True)
 
+# Estilizado estricto para gráficos de Plotly
 def aplicar_estilo_plotly(fig, height=350):
     fig.update_layout(
-        paper_bgcolor="#ffffff", plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
         font=dict(color="#2c3e50", family="sans-serif", size=12),
-        margin=dict(l=10, r=10, t=30, b=40), height=height,
+        margin=dict(l=10, r=10, t=30, b=40),
+        height=height,
         xaxis=dict(gridcolor="#e5e8e8", zerolinecolor="#e5e8e8", tickfont=dict(color="#2c3e50"), title_font=dict(color="#2c3e50", size=13), automargin=True),
         yaxis=dict(gridcolor="#e5e8e8", zerolinecolor="#e5e8e8", tickfont=dict(color="#2c3e50"), title_font=dict(color="#2c3e50", size=13), automargin=True),
-        legend=dict(font=dict(color="#2c3e50"), bgcolor="rgba(255,255,255,0.8)")
+        legend=dict(font=dict(color="#2c3e50", size=11), bgcolor="rgba(255,255,255,0.9)")
     )
     return fig
 
 # ===================================================================
-# 2. CARGA Y TRATAMIENTO DE DATOS
+# 2. CARGA Y TRATAMIENTO DE DATOS CON DEPURACIÓN RIGUROSA DE DUPLICADOS
 # ===================================================================
 def clean_col(name):
     name = unicodedata.normalize('NFD', str(name))
     name = ''.join(c for c in name if unicodedata.category(c) != 'Mn')
     name = name.lower().strip()
-    return re.sub(r'_+', '_', re.sub(r'[^a-z0-9_]', '_', name)).strip('_')
+    name = re.sub(r'[^a-z0-9_]', '_', name)
+    name = re.sub(r'_+', '_', name).strip('_')
+    return name
 
 def buscar_columna(df_cols, palabras_clave):
     for col in df_cols:
-        if any(kw in col for kw in palabras_clave): return col
+        if any(kw in col for kw in palabras_clave):
+            return col
     return None
 
 def check_cond_cols(df, palabras_clave, valores_objetivo):
     cols_coincidentes = [c for c in df.columns if any(kw in c for kw in palabras_clave)]
-    if not cols_coincidentes: return pd.Series(False, index=df.index)
+    if not cols_coincidentes:
+        return pd.Series(False, index=df.index)
     return df[cols_coincidentes].isin(valores_objetivo).any(axis=1)
 
 @st.cache_data(ttl=30)
@@ -123,14 +146,25 @@ def cargar_datos():
     try:
         df_bruto = pd.read_csv(url_csv)
         df_bruto.columns = [clean_col(c) for c in df_bruto.columns]
-        df = df_bruto.copy()
     except Exception:
-        df = pd.DataFrame()
+        df_bruto = pd.DataFrame()
 
-    if df.empty: return pd.DataFrame(), {}
-
-    cols_sin_timestamp = [c for c in df.columns if c not in ["marca_temporal", "timestamp", "fecha", "fecha_corta"]]
-    if cols_sin_timestamp: df = df.drop_duplicates(subset=cols_sin_timestamp, keep="last").reset_index(drop=True)
+    if not df_bruto.empty and len(df_bruto) > 0:
+        df = df_bruto.copy()
+    else:
+        df = pd.DataFrame({
+            "marca_temporal": ["2026-08-14 08:30:00", "2026-08-14 10:15:00", "2026-08-14 14:20:00"],
+            "barrio_vereda": ["Cubis", "Comercio", "Independencia"],
+            "clasificacion_habitabilidad": ["Riesgo de colapso", "Habitable", "No habitable"],
+            "total_habitantes": [5, 3, 4], "ninos": [2, 0, 1], "adultos_mayores": [1, 0, 1],
+            "n_personas_discapacidad": [0, 1, 0], "n_mujeres_embarazadas": [1, 0, 0],
+            "coordenadas_gps": ["5.161,-76.681", "5.165,-76.675", "5.158,-76.685"],
+            "nombre_propietario": ["Carlos Pérez", "María López", "Juan Gómez"],
+            "telefono": ["3101234567", "3119876543", "3125554433"],
+            "documento": ["10751234", "35876543", "11125554"],
+            "necesidades_inmediatas": ["Cubierta, Agua", "Materiales", "Reparación de muros"],
+            "fotos": ["https://google.com", "", ""]
+        })
 
     col_barrio = buscar_columna(df.columns, ["barrio", "vereda"]) or "barrio_vereda"
     col_habitabilidad = buscar_columna(df.columns, ["habitabilidad", "clasificacion"]) or "clasificacion_habitabilidad"
@@ -145,7 +179,6 @@ def cargar_datos():
     col_necesidades = buscar_columna(df.columns, ["necesidad", "requiere"]) or "necesidades_inmediatas"
     col_coords = buscar_columna(df.columns, ["coordenadas", "gps", "ubicacion"]) or "coordenadas_gps"
 
-    # CAPTURA ESTRICTA DE LA COLUMNA 2 (ÍNDICE 1) PARA EL LINK DE FOTOS/EVIDENCIA
     col_fotos = df.columns[1] if len(df.columns) > 1 else "fotos"
 
     df["barrio_vereda"] = df[col_barrio].fillna("No registrado").astype(str) if col_barrio in df.columns else "No registrado"
@@ -159,7 +192,6 @@ def cargar_datos():
     df["necesidades_inmediatas"] = df[col_necesidades].fillna("Sin especificación").astype(str) if col_necesidades in df.columns else "Sin especificación"
     df["fotos"] = df[col_fotos].fillna("").astype(str) if col_fotos in df.columns else ""
 
-    # CORRECCIÓN DE NÚMEROS DE TELÉFONO Y DOCUMENTO COMO ENTEROS (Eliminando decimales .0)
     if col_telefono in df.columns:
         df["telefono"] = df[col_telefono].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', 'No registrado')
     else:
@@ -171,16 +203,18 @@ def cargar_datos():
         df["documento"] = "No registrado"
 
     col_fecha = buscar_columna(df.columns, ["marca_temporal", "timestamp", "fecha"])
-    if col_fecha and col_fecha in df.columns: df["fecha_corta"] = pd.to_datetime(df[col_fecha], errors='coerce').dt.date.fillna(datetime.now().date())
-    else: df["fecha_corta"] = datetime.now().date()
+    if col_fecha and col_fecha in df.columns:
+        df["fecha_corta"] = pd.to_datetime(df[col_fecha], errors='coerce').dt.date.fillna(datetime.now().date())
+    else:
+        df["fecha_corta"] = datetime.now().date()
 
     if col_coords and col_coords in df.columns:
         coords = df[col_coords].astype(str).str.split(",", expand=True)
         df["lat"] = pd.to_numeric(coords[0], errors='coerce').fillna(5.161)
         df["lon"] = pd.to_numeric(coords[1], errors='coerce').fillna(-76.681)
-    else: df["lat"] = 5.161; df["lon"] = -76.681
-
-    colores_hab = { "Habitable": "#27ae60", "Habitable con restricciones": "#f1c40f", "No habitable": "#e74c3c", "Riesgo de colapso": "#8e44ad", "No evaluado": "#3498db", "Sin Clasificar": "#95a5a6", "No registrado": "#95a5a6" }
+    else:
+        df["lat"] = 5.161
+        df["lon"] = -76.681
 
     def estandarizar_barrio(txt):
         txt = str(txt).lower().strip()
@@ -208,12 +242,47 @@ def cargar_datos():
 
     df["barrio_estandar"] = df["barrio_vereda"].apply(estandarizar_barrio)
     df["sector_especifico"] = df["barrio_vereda"].apply(estandarizar_sector)
+
+    # -------------------------------------------------------------------
+    # FILTRO AVANZADO DE ENTRADAS REPETIDAS (DEPURACIÓN ESTRUCTURADA)
+    # -------------------------------------------------------------------
+    # 1. Conservar el registro más reciente si coincide el documento de identidad
+    mask_doc_valido = (df["documento"] != "No registrado") & (df["documento"] != "") & (df["documento"] != "0")
+    df_con_doc = df[mask_doc_valido].drop_duplicates(subset=["documento"], keep="last")
+    df_sin_doc = df[~mask_doc_valido]
+    
+    # 2. Para registros sin documento, depurar por Propietario + Barrio
+    df_sin_doc = df_sin_doc.drop_duplicates(subset=["nombre_propietario", "barrio_estandar"], keep="last")
+    
+    # 3. Consolidar el dataframe limpio
+    df = pd.concat([df_con_doc, df_sin_doc]).sort_index().reset_index(drop=True)
+
+    colores_hab = {
+        "Habitable": "#27ae60",
+        "Habitable con restricciones": "#f1c40f",
+        "No evaluado": "#3498db",
+        "No habitable": "#e74c3c",
+        "Riesgo de colapso": "#8e44ad",
+        "Sin Clasificar": "#95a5a6",
+        "No registrado": "#95a5a6"
+    }
+
     df["color_riesgo"] = df["clasificacion_habitabilidad"].map(colores_hab).fillna("#95a5a6")
 
     def crear_btn_foto(foto):
         foto = str(foto).strip()
-        if foto in ["No registrado", "", "nan", "None", "#"]: return "<span style='color:gray; font-size:11px;'>Sin evidencia</span>"
-        return f"<a href='{foto}' target='_blank' style='display:inline-block; padding:4px 8px; background:#2980b9; color:white; border-radius:4px; text-decoration:none; font-size:11px; font-weight:bold;'>Ver Evidencia</a>"
+        urls = re.findall(r'(https?://[^\s]+)', foto)
+        if urls:
+            link_real = urls[0].replace('"', '').replace("'", "")
+            return f"<a href='{link_real}' target='_blank' style='display:inline-block; padding:4px 8px; background:#2980b9; color:white; border-radius:4px; text-decoration:none; font-size:11px; font-weight:bold;'>Ver Evidencia</a>"
+        
+        if "www." in foto:
+            urls_www = re.findall(r'(www\.[^\s]+)', foto)
+            if urls_www:
+                link_real = "https://" + urls_www[0].replace('"', '').replace("'", "")
+                return f"<a href='{link_real}' target='_blank' style='display:inline-block; padding:4px 8px; background:#2980b9; color:white; border-radius:4px; text-decoration:none; font-size:11px; font-weight:bold;'>Ver Evidencia</a>"
+                
+        return "<span style='color:gray; font-size:11px;'>Sin evidencia</span>"
 
     df["btn_foto"] = df["fotos"].apply(crear_btn_foto)
 
@@ -295,7 +364,7 @@ with tabs[0]:
     st.plotly_chart(fig_tiempo, use_container_width=True, theme=None)
 
 # -------------------------------------------------------------------
-# TAB 2: VISOR GEOESPACIAL 
+# TAB 2: VISOR GEOESPACIAL
 # -------------------------------------------------------------------
 with tabs[1]:
     col_f, col_m = st.columns([45, 55])
@@ -424,19 +493,52 @@ with tabs[2]:
             b_dano = st.multiselect("Seleccione Barrio:", options=sorted(df["barrio_estandar"].unique()), key="bd_dano")
             s_dano = st.multiselect("Seleccione Sector:", options=sorted(df["sector_especifico"].unique()), key="sd_dano")
             
-            df_mapa_danos = df[df["es_riesgo_estructural"] | df["es_afectacion_cubierta"] | df["es_afectacion_muros"] | df["es_colapso"]].copy()
+            st.markdown("**Mostrar solo:**")
+            c_cubierta = st.checkbox("Afectación en Cubierta", key="chk_cub")
+            c_muros = st.checkbox("Afectación en Muros/Fachada", key="chk_mur")
+            c_estructural = st.checkbox("Riesgo Estructural", key="chk_est")
+            c_colapso = st.checkbox("Vivienda con Colapso", key="chk_col")
+
+            df_mapa_danos = df.copy()
+
+            # Filtrado por Barrio y Sector
             if b_dano: df_mapa_danos = df_mapa_danos[df_mapa_danos["barrio_estandar"].isin(b_dano)]
             if s_dano: df_mapa_danos = df_mapa_danos[df_mapa_danos["sector_especifico"].isin(s_dano)]
+
+            # Filtrado interactivo por casillas de verificación
+            if c_cubierta or c_muros or c_estructural or c_colapso:
+                cond_afect = pd.Series(False, index=df_mapa_danos.index)
+                if c_cubierta: cond_afect |= df_mapa_danos["es_afectacion_cubierta"]
+                if c_muros: cond_afect |= df_mapa_danos["es_afectacion_muros"]
+                if c_estructural: cond_afect |= df_mapa_danos["es_riesgo_estructural"]
+                if c_colapso: cond_afect |= df_mapa_danos["es_colapso"]
+                df_mapa_danos = df_mapa_danos[cond_afect]
+            else:
+                # Si no hay ninguna casilla marcada, se muestran todas las viviendas con algún daño
+                df_mapa_danos = df_mapa_danos[df_mapa_danos["es_riesgo_estructural"] | df_mapa_danos["es_afectacion_cubierta"] | df_mapa_danos["es_afectacion_muros"] | df_mapa_danos["es_colapso"]]
 
         with col_dmapa:
             m_dano = folium.Map(location=[5.161, -76.681], zoom_start=14, tiles="CartoDB positron")
             for _, r in df_mapa_danos.iterrows():
                 color_point = "#8e44ad" if r["es_colapso"] else ("#e74c3c" if r["es_riesgo_estructural"] else "#f39c12")
-                html_p = f"<b>{r['nombre_propietario']}</b><br>Daños: {r['resumen_danos_criticos']}"
+                doc_str = f"({r['documento']})" if r['documento'] != "No registrado" else ""
+                
+                html_p = f"""
+                <div style='min-width:200px; font-family:sans-serif;'>
+                <h4 style='margin:0 0 5px 0; color:#2c3e50;'>{r['nombre_propietario']} {doc_str}</h4>
+                <b>Teléfono:</b> {r['telefono']}<br>
+                <b>Barrio:</b> {r['barrio_estandar']} ({r['sector_especifico']})<br>
+                <b>Estado:</b> <span style='color:{r['color_riesgo']}; font-weight:bold;'>{r['clasificacion_habitabilidad']}</span><br>
+                <hr style='margin:5px 0;'>
+                <b>Daños Registrados:</b><br>
+                <span style='color:#e74c3c; font-size:12px;'>{r['resumen_danos_criticos']}</span><br><br>
+                <div style='text-align:center;'>{r['btn_foto']}</div>
+                </div>
+                """
                 folium.CircleMarker(
                     location=[r["lat"], r["lon"]],
-                    radius=8, color=color_point, fill=True, fill_color=color_point, fill_opacity=0.8,
-                    popup=folium.Popup(html_p, max_width=250)
+                    radius=8, color=color_point, fill=True, fill_color=color_point, fill_opacity=0.85,
+                    popup=folium.Popup(html_p, max_width=280)
                 ).add_to(m_dano)
             st_folium(m_dano, width="100%", height=400, key="mapa_danos")
 
@@ -468,18 +570,29 @@ with tabs[3]:
         df_v_mapa = df[cond_v]
         m_v = folium.Map(location=[5.161, -76.681], zoom_start=14, tiles="CartoDB positron")
         for _, r in df_v_mapa.iterrows():
+            total_vuln = int(r["ninos"] + r["adultos_mayores"] + r["n_personas_discapacidad"] + r["n_mujeres_embarazadas"])
+            doc_str = f"({r['documento']})" if r['documento'] != "No registrado" else ""
+            
             html_p = f"""
-            <div style='min-width:180px; font-family:sans-serif;'>
-            <h4 style='margin:0 0 5px 0; color:#2c3e50;'>{r['nombre_propietario']}</h4>
-            <b>Barrio:</b> {r['barrio_estandar']}<br>
-            <b>Niños:</b> {r['ninos']} | <b>Mayores:</b> {r['adultos_mayores']}<br>
-            <b>Discapacidad:</b> {r['n_personas_discapacidad']} | <b>Embarazadas:</b> {r['n_mujeres_embarazadas']}<br>
+            <div style='min-width:200px; font-family:sans-serif;'>
+            <h4 style='margin:0 0 5px 0; color:#2c3e50;'>{r['nombre_propietario']} {doc_str}</h4>
+            <b>Teléfono:</b> {r['telefono']}<br>
+            <b>Barrio:</b> {r['barrio_estandar']} ({r['sector_especifico']})<br>
+            <hr style='margin:5px 0;'>
+            <b>Total Personas Vulnerables:</b> <span style='color:#d35400; font-size:14px; font-weight:bold;'>{total_vuln}</span><br>
+            <ul style='margin:5px 0 10px 15px; padding:0; font-size:12px;'>
+                <li><b>Niños / Niñas:</b> {r['ninos']}</li>
+                <li><b>Adultos Mayores:</b> {r['adultos_mayores']}</li>
+                <li><b>Mujeres Embarazadas:</b> {r['n_mujeres_embarazadas']}</li>
+                <li><b>Personas c/ Discapacidad:</b> {r['n_personas_discapacidad']}</li>
+            </ul>
+            <div style='text-align:center;'>{r['btn_foto']}</div>
             </div>
             """
             folium.CircleMarker(
                 location=[r["lat"], r["lon"]],
-                radius=8, color="#e67e22", fill=True, fill_color="#e67e22", fill_opacity=0.8,
-                popup=folium.Popup(html_p, max_width=250)
+                radius=8, color="#e67e22", fill=True, fill_color="#e67e22", fill_opacity=0.85,
+                popup=folium.Popup(html_p, max_width=280)
             ).add_to(m_v)
         st_folium(m_v, width="100%", height=400, key="mapa_vuln")
 
