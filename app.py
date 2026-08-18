@@ -37,7 +37,6 @@ if not st.session_state["autenticado"]:
 # LIMPIADOR DE ENCABEZADOS IDENTICO A R (janitor::clean_names)
 # ===================================================================
 def clean_col(name):
-    # Normaliza y elimina tildes/eñes preservando la letra base (ñ -> n, ó -> o)
     name = unicodedata.normalize('NFD', str(name))
     name = ''.join(c for c in name if unicodedata.category(c) != 'Mn')
     name = name.lower().strip()
@@ -50,6 +49,13 @@ def buscar_columna(df_cols, palabras_clave):
         if any(kw in col for kw in palabras_clave):
             return col
     return None
+
+def check_cond_cols(df, palabras_clave, valores_objetivo):
+    """Evalua condiciones sobre una lista de columnas garantizando un DataFrame de Pandas"""
+    cols_coincidentes = [c for c in df.columns if any(kw in c for kw in palabras_clave)]
+    if not cols_coincidentes:
+        return pd.Series(False, index=df.index)
+    return df[cols_coincidentes].isin(valores_objetivo).any(axis=1)
 
 # ===================================================================
 # CARGA Y TRATAMIENTO DE DATOS (REFRESCO CADA 30 SEGUNDOS)
@@ -66,7 +72,7 @@ def cargar_datos():
     if df.empty:
         return pd.DataFrame(), {}
 
-    # Mapeo inteligente de columnas clave
+    # Mapeo de columnas principales
     col_barrio = buscar_columna(df.columns, ["barrio", "vereda"]) or "barrio_vereda"
     col_habitabilidad = buscar_columna(df.columns, ["habitabilidad", "clasificacion"]) or "clasificacion_habitabilidad"
     col_habitantes = buscar_columna(df.columns, ["total_habitantes", "habitantes", "personas"]) or "total_habitantes"
@@ -79,7 +85,7 @@ def cargar_datos():
     col_necesidades = buscar_columna(df.columns, ["necesidad", "requiere"]) or "necesidades_inmediatas"
     col_coords = buscar_columna(df.columns, ["coordenadas", "gps", "ubicacion"]) or "coordenadas_gps"
 
-    # Estandarización de nombres en el DataFrame
+    # Homologación de variables
     df["barrio_vereda"] = df[col_barrio] if col_barrio in df.columns else "No registrado"
     df["clasificacion_habitabilidad"] = df[col_habitabilidad] if col_habitabilidad in df.columns else "Sin Clasificar"
     df["total_habitantes"] = pd.to_numeric(df[col_habitantes], errors='coerce').fillna(0).astype(int) if col_habitantes in df.columns else 0
@@ -107,7 +113,7 @@ def cargar_datos():
         df["lat"] = 5.161
         df["lon"] = -76.681
 
-    # Reglas ortográficas de Barrios y Sectores (Misma lógica de R)
+    # Reglas ortográficas de Barrios y Sectores
     def estandarizar_barrio(txt):
         txt = str(txt).lower().strip()
         if re.search(r"eduardo|santo|pep", txt): return "Eduardo Santos (La Pepé)"
@@ -120,7 +126,7 @@ def cargar_datos():
         elif re.search(r"carretera|carrete|san francisco|francisco", txt): return "Carretera (San Francisco)"
         elif re.search(r"agust", txt): return "San Agustín"
         elif re.search(r"pueblo|nuevo|meseta", txt): return "Pueblo Nuevo"
-        return txt.title() if txt != "nan" and txt != "" else "No Registrado"
+        return txt.title() if txt not in ["nan", ""] else "No Registrado"
 
     def estandarizar_sector(txt):
         txt = str(txt).lower().strip()
@@ -146,7 +152,7 @@ def cargar_datos():
     }
     df["color_riesgo"] = df["clasificacion_habitabilidad"].map(colores_hab).fillna("#95a5a6")
 
-    # Necesidades
+    # Banderas de Necesidades
     nec_str = df["necesidades_inmediatas"].astype(str).str.lower()
     df["nec_cubierta"] = nec_str.str.contains("cubierta").astype(int)
     df["nec_materiales"] = nec_str.str.contains("materiales").astype(int)
@@ -156,15 +162,16 @@ def cargar_datos():
     df["nec_alojamiento"] = nec_str.str.contains("alojamiento").astype(int)
     df["nec_alimento"] = nec_str.str.contains("alimenta").astype(int)
 
-    # Identificación de Daños por columnas
+    # Identificación segura de Daños (evitando errores de Pandas Series/DataFrame)
+    val_criticos = ["Severo", "Colapso", "Si", "Sí", "si", "sí"]
+    val_mod_crit = ["Moderado", "Severo", "Colapso", "Si", "Sí", "si", "sí"]
+
+    df["es_riesgo_estructural"] = check_cond_cols(df, ["cimentacion", "columnas", "vigas", "grieta_estructural"], val_criticos)
+    df["es_afectacion_cubierta"] = check_cond_cols(df, ["cubierta", "techo"], val_mod_crit)
+    df["es_afectacion_muros"] = check_cond_cols(df, ["muros", "fachada", "grieta_muro"], val_mod_crit)
+    df["es_colapso"] = check_cond_cols(df, ["dano", "colaps", "parte_colapsada"], ["Colapso"]) | df["clasificacion_habitabilidad"].astype(str).str.contains("colapso", case=False, na=False)
+
     cols_sev = [c for c in df.columns if c.startswith("dano_")]
-    cols_sino = [c for c in df.columns if any(p in c for p in ["grietas", "desprendimiento", "inclinacion", "colaps"])]
-
-    df["es_riesgo_estructural"] = df[cols_sev].isin(["Severo", "Colapso"]).any(axis=1) if cols_sev else False
-    df["es_afectacion_cubierta"] = df[buscar_columna(df.columns, ["dano_cubierta"])].isin(["Moderado", "Severo", "Colapso"]) if buscar_columna(df.columns, ["dano_cubierta"]) in df.columns else False
-    df["es_afectacion_muros"] = df[buscar_columna(df.columns, ["dano_muros", "fachada"])].isin(["Moderado", "Severo", "Colapso"]).any(axis=1) if buscar_columna(df.columns, ["dano_muros", "fachada"]) else False
-    df["es_colapso"] = (df == "Colapso").any(axis=1) | df["clasificacion_habitabilidad"].eq("Riesgo de colapso")
-
     def resumen_danos(row):
         danos = [f"{c.replace('dano_', '').title()} ({row[c]})" for c in cols_sev if row[c] in ["Severo", "Colapso"]]
         return " | ".join(danos) if danos else "Sin daños estructurales críticos"
