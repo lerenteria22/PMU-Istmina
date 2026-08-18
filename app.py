@@ -91,7 +91,6 @@ if not st.session_state["autenticado"]:
             st.error("Contraseña incorrecta")
     st.stop()
 
-# Helper para ValueBoxes
 def render_value_box(numero, titulo, color_bg, icono_fa):
     st.markdown(f"""
     <div class="value-box" style="background-color: {color_bg};">
@@ -103,14 +102,10 @@ def render_value_box(numero, titulo, color_bg, icono_fa):
     </div>
     """, unsafe_allow_html=True)
 
-# Estilizado para Plotly
 def aplicar_estilo_plotly(fig, height=350):
     fig.update_layout(
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
-        font=dict(color="#2c3e50", family="sans-serif", size=12),
-        margin=dict(l=10, r=10, t=30, b=40),
-        height=height,
+        paper_bgcolor="#ffffff", plot_bgcolor="#ffffff",
+        font=dict(color="#2c3e50", family="sans-serif", size=12), margin=dict(l=10, r=10, t=30, b=40), height=height,
         xaxis=dict(gridcolor="#e5e8e8", zerolinecolor="#e5e8e8", tickfont=dict(color="#2c3e50"), title_font=dict(color="#2c3e50", size=13), automargin=True),
         yaxis=dict(gridcolor="#e5e8e8", zerolinecolor="#e5e8e8", tickfont=dict(color="#2c3e50"), title_font=dict(color="#2c3e50", size=13), automargin=True),
         legend=dict(font=dict(color="#2c3e50", size=11), bgcolor="rgba(255,255,255,0.9)")
@@ -118,7 +113,7 @@ def aplicar_estilo_plotly(fig, height=350):
     return fig
 
 # ===================================================================
-# 2. CARGA Y TRATAMIENTO DE DATOS
+# 2. CARGA Y TRATAMIENTO DE DATOS (MAPEO EXACTO A ENCABEZADOS)
 # ===================================================================
 def clean_col(name):
     name = unicodedata.normalize('NFD', str(name))
@@ -128,85 +123,67 @@ def clean_col(name):
     name = re.sub(r'_+', '_', name).strip('_')
     return name
 
-def buscar_columna(df_cols, palabras_clave):
-    for col in df_cols:
-        if any(kw in col for kw in palabras_clave):
-            return col
-    return None
-
 def check_cond_cols(df, palabras_clave, valores_objetivo):
     cols_coincidentes = [c for c in df.columns if any(kw in c for kw in palabras_clave)]
     if not cols_coincidentes:
         return pd.Series(False, index=df.index)
     return df[cols_coincidentes].isin(valores_objetivo).any(axis=1)
 
-@st.cache_data(ttl=30)
+# === ACTUALIZACIÓN A 1 MINUTO (ttl=60) ===
+@st.cache_data(ttl=60)
 def cargar_datos():
     url_csv = "https://docs.google.com/spreadsheets/d/1UyHaV3J-MJ3lMnQs5lnPGIdGMTn591Tsz1aZ9_E1Z8g/gviz/tq?tqx=out:csv&sheet=Hoja%201"
     try:
-        df_bruto = pd.read_csv(url_csv)
-        df_bruto.columns = [clean_col(c) for c in df_bruto.columns]
+        df = pd.read_csv(url_csv)
+        df.columns = [clean_col(c) for c in df.columns]
     except Exception:
-        df_bruto = pd.DataFrame()
+        # DF Mock solo para evitar caídas si Google no responde 1 segundo
+        df = pd.DataFrame()
 
-    if not df_bruto.empty and len(df_bruto) > 0:
-        df = df_bruto.copy()
-    else:
-        df = pd.DataFrame({
-            "marca_temporal": ["2026-08-14 08:30:00", "2026-08-14 10:15:00", "2026-08-14 14:20:00"],
-            "barrio_vereda": ["Cubis", "Comercio", "Independencia"],
-            "clasificacion_habitabilidad": ["Riesgo de colapso", "Habitable", "No habitable"],
-            "total_habitantes": [5, 3, 4], "ninos": [2, 0, 1], "adultos_mayores": [1, 0, 1],
-            "numdiscapacidad": [0, 1, 0], "numembarazadas": [1, 0, 0],
-            "discapacidad": ["No", "Sí", "No"], "embarazadas": ["Sí", "No", "No"],
-            "coordenadas_gps": ["5.161,-76.681", "5.165,-76.675", "5.158,-76.685"],
-            "nombre_propietario": ["Carlos Pérez", "María López", "Juan Gómez"],
-            "telefono": ["3101234567", "3119876543", "3125554433"],
-            "documento": ["10751234", "35876543", "11125554"],
-            "necesidades_inmediatas": ["Cubierta, Agua", "Materiales", "Reparación de muros"],
-            "fotos": ["https://google.com", "", ""]
-        })
+    if df.empty or len(df) == 0:
+        st.error("No se pudieron cargar los datos de Google Sheets.")
+        st.stop()
 
-    col_barrio = buscar_columna(df.columns, ["barrio", "vereda"]) or "barrio_vereda"
-    col_habitabilidad = buscar_columna(df.columns, ["habitabilidad", "clasificacion"]) or "clasificacion_habitabilidad"
-    col_habitantes = buscar_columna(df.columns, ["total_habitantes", "habitantes", "personas"]) or "total_habitantes"
-    col_ninos = buscar_columna(df.columns, ["ninos", "ninase"]) or "ninos"
-    col_mayores = buscar_columna(df.columns, ["adultos_mayores", "mayores", "ancianos"]) or "adultos_mayores"
+    # Nombres exactos basados en la lista de encabezados limpia:
+    col_barrio = "barrio_vereda"
+    col_habitabilidad = "clasificacion_habitabilidad"
+    col_habitantes = "total_habitantes"
+    col_ninos = "ninos"
+    col_mayores = "adultos_mayores"
     
-    col_discap_num = buscar_columna(df.columns, ["numdiscapacidad", "cant_discapacidad", "n_personas_discapacidad"])
-    col_discap_txt = buscar_columna(df.columns, ["discapacidad"])
-    col_emb_num = buscar_columna(df.columns, ["numembarazadas", "cant_embarazadas", "n_mujeres_embarazadas"])
-    col_emb_txt = buscar_columna(df.columns, ["embarazada", "embarazadas", "gestante"])
+    col_discap_num = "n_personas_discapacidad"
+    col_discap_txt = "personas_con_discapacidad"
+    col_emb_num = "n_mujeres_embarazadas"
+    col_emb_txt = "mujeres_embarazadas"
 
-    col_propietario = buscar_columna(df.columns, ["propietario", "nombre", "afectado"]) or "nombre_propietario"
-    col_telefono = buscar_columna(df.columns, ["telefono", "celular", "contacto"]) or "telefono"
-    col_documento = buscar_columna(df.columns, ["documento", "cedula", "identificacion", "id", "cc"]) or "documento"
-    col_necesidades = buscar_columna(df.columns, ["necesidad", "requiere"]) or "necesidades_inmediatas"
-    col_coords = buscar_columna(df.columns, ["coordenadas", "gps", "ubicacion"]) or "coordenadas_gps"
+    col_propietario = "nombre_propietario"
+    col_telefono = "telefono"
+    col_documento = "n_documento"
+    col_necesidades = "necesidades_inmediatas"
+    col_coords = "coordenadas_gps"
+    col_fecha_real = "marca_temporal"
+    col_fotos = "link_carpeta_drive"
 
-    col_fotos = df.columns[1] if len(df.columns) > 1 else "fotos"
+    # Extracción robusta de números ("2 abuelos" -> 2)
+    def extraer_numero(serie):
+        return pd.to_numeric(serie.astype(str).str.extract(r'(\d+)')[0], errors='coerce').fillna(0).astype(int)
 
     df["barrio_vereda"] = df[col_barrio].fillna("No registrado").astype(str) if col_barrio in df.columns else "No registrado"
     df["clasificacion_habitabilidad"] = df[col_habitabilidad].fillna("Sin Clasificar").astype(str) if col_habitabilidad in df.columns else "Sin Clasificar"
-    df["total_habitantes"] = pd.to_numeric(df[col_habitantes], errors='coerce').fillna(0).astype(int) if col_habitantes in df.columns else 0
-    df["ninos"] = pd.to_numeric(df[col_ninos], errors='coerce').fillna(0).astype(int) if col_ninos in df.columns else 0
-    df["adultos_mayores"] = pd.to_numeric(df[col_mayores], errors='coerce').fillna(0).astype(int) if col_mayores in df.columns else 0
     
-    if col_discap_num and col_discap_num in df.columns:
-        df["n_personas_discapacidad"] = pd.to_numeric(df[col_discap_num], errors='coerce').fillna(0).astype(int)
-    else:
-        df["n_personas_discapacidad"] = 0
+    # === CONTEO REAL DE POBLACIÓN (Blindado) ===
+    df["total_habitantes"] = extraer_numero(df[col_habitantes]) if col_habitantes in df.columns else 0
+    df["ninos"] = extraer_numero(df[col_ninos]) if col_ninos in df.columns else 0
+    df["adultos_mayores"] = extraer_numero(df[col_mayores]) if col_mayores in df.columns else 0
+    df["n_personas_discapacidad"] = extraer_numero(df[col_discap_num]) if col_discap_num in df.columns else 0
+    df["n_mujeres_embarazadas"] = extraer_numero(df[col_emb_num]) if col_emb_num in df.columns else 0
 
-    if col_discap_txt and col_discap_txt in df.columns:
+    # Respaldo en caso de que llenaran texto (Sí/No) pero dejaran el número vacío
+    if col_discap_txt in df.columns:
         mask_txt_discap = df[col_discap_txt].astype(str).str.lower().str.contains("si|sí")
         df.loc[mask_txt_discap & (df["n_personas_discapacidad"] == 0), "n_personas_discapacidad"] = 1
 
-    if col_emb_num and col_emb_num in df.columns:
-        df["n_mujeres_embarazadas"] = pd.to_numeric(df[col_emb_num], errors='coerce').fillna(0).astype(int)
-    else:
-        df["n_mujeres_embarazadas"] = 0
-
-    if col_emb_txt and col_emb_txt in df.columns:
+    if col_emb_txt in df.columns:
         mask_txt_emb = df[col_emb_txt].astype(str).str.lower().str.contains("si|sí")
         df.loc[mask_txt_emb & (df["n_mujeres_embarazadas"] == 0), "n_mujeres_embarazadas"] = 1
 
@@ -214,23 +191,15 @@ def cargar_datos():
     df["necesidades_inmediatas"] = df[col_necesidades].fillna("Sin especificación").astype(str) if col_necesidades in df.columns else "Sin especificación"
     df["fotos"] = df[col_fotos].fillna("").astype(str) if col_fotos in df.columns else ""
 
-    if col_telefono in df.columns:
-        df["telefono"] = df[col_telefono].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', 'No registrado')
-    else:
-        df["telefono"] = "No registrado"
-        
-    if col_documento in df.columns:
-        df["documento"] = df[col_documento].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', 'No registrado')
-    else:
-        df["documento"] = "No registrado"
+    df["telefono"] = df[col_telefono].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', 'No registrado') if col_telefono in df.columns else "No registrado"
+    df["documento"] = df[col_documento].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', 'No registrado') if col_documento in df.columns else "No registrado"
 
-    col_fecha_real = buscar_columna(df.columns, ["marca_temporal", "timestamp", "fecha"])
-    if col_fecha_real and col_fecha_real in df.columns:
+    if col_fecha_real in df.columns:
         df["fecha_corta"] = pd.to_datetime(df[col_fecha_real], errors='coerce').dt.date.fillna(datetime.now().date())
     else:
         df["fecha_corta"] = datetime.now().date()
 
-    if col_coords and col_coords in df.columns:
+    if col_coords in df.columns:
         coords = df[col_coords].astype(str).str.split(",", expand=True)
         df["lat"] = pd.to_numeric(coords[0], errors='coerce').fillna(5.161)
         df["lon"] = pd.to_numeric(coords[1], errors='coerce').fillna(-76.681)
@@ -266,28 +235,16 @@ def cargar_datos():
     df["sector_especifico"] = df["barrio_vereda"].apply(estandarizar_sector)
 
     # -------------------------------------------------------------------
-    # NUEVO FILTRO 100% SEGURO: ANTI-DOBLE CLIC (VENTANA DE 15 MINUTOS)
+    # FILTRO SEGURO: ANTI-DOBLE CLIC (VENTANA DE 15 MINUTOS)
     # -------------------------------------------------------------------
-    if col_fecha_real and col_fecha_real in df.columns:
-        # Convertir a datetime real para medir minutos exactos
+    if col_fecha_real in df.columns:
         df['fecha_hora_dt'] = pd.to_datetime(df[col_fecha_real], errors='coerce')
-        
-        # Ordenar cronológicamente para garantizar la secuencia de envíos
         df = df.sort_values(by=['nombre_propietario', 'barrio_estandar', 'fecha_hora_dt'])
-        
-        # Calcular los minutos de diferencia entre un registro y el siguiente
         df['minutos_al_siguiente'] = df.groupby(['nombre_propietario', 'barrio_estandar'])['fecha_hora_dt'].diff(periods=-1).dt.total_seconds().abs() / 60.0
         
-        # REGLA MAGISTRAL: 
-        # Conservar el registro SI es el último del grupo (minutos NaN) 
-        # O SI la diferencia con el siguiente formulario es MAYOR a 15 minutos (es otra casa en el mismo barrio)
+        # Conservar si es el último registro O si la diferencia de envío es > 15 min (Propiedad distinta)
         condicion_mantener = df['minutos_al_siguiente'].isna() | (df['minutos_al_siguiente'] > 15)
         df = df[condicion_mantener].drop(columns=['fecha_hora_dt', 'minutos_al_siguiente']).reset_index(drop=True)
-    else:
-        # Respaldo simple solo si se corrompe por completo la columna de marca de tiempo (muy improbable)
-        df = df.drop_duplicates(subset=["nombre_propietario", "barrio_estandar"], keep="last")
-
-    # -------------------------------------------------------------------
 
     colores_hab = {
         "Habitable": "#27ae60",
@@ -298,7 +255,6 @@ def cargar_datos():
         "Sin Clasificar": "#95a5a6",
         "No registrado": "#95a5a6"
     }
-
     df["color_riesgo"] = df["clasificacion_habitabilidad"].map(colores_hab).fillna("#95a5a6")
 
     def crear_btn_foto(foto):
@@ -307,17 +263,15 @@ def cargar_datos():
         if urls:
             link_real = urls[0].replace('"', '').replace("'", "")
             return f"<a href='{link_real}' target='_blank' style='display:inline-block; padding:4px 8px; background:#2980b9; color:white; border-radius:4px; text-decoration:none; font-size:11px; font-weight:bold;'>Ver Evidencia</a>"
-        
         if "www." in foto:
             urls_www = re.findall(r'(www\.[^\s]+)', foto)
             if urls_www:
                 link_real = "https://" + urls_www[0].replace('"', '').replace("'", "")
                 return f"<a href='{link_real}' target='_blank' style='display:inline-block; padding:4px 8px; background:#2980b9; color:white; border-radius:4px; text-decoration:none; font-size:11px; font-weight:bold;'>Ver Evidencia</a>"
-                
         return "<span style='color:gray; font-size:11px;'>Sin evidencia</span>"
-
     df["btn_foto"] = df["fotos"].apply(crear_btn_foto)
 
+    # Evaluación Estructural (Sincronizada con los encabezados)
     nec_str = df["necesidades_inmediatas"].astype(str).str.lower()
     df["nec_cubierta"] = nec_str.str.contains("cubierta").astype(int)
     df["nec_materiales"] = nec_str.str.contains("materiales").astype(int)
@@ -330,25 +284,21 @@ def cargar_datos():
     val_criticos = ["Severo", "Colapso", "Si", "Sí", "si", "sí"]
     val_mod_crit = ["Moderado", "Severo", "Colapso", "Si", "Sí", "si", "sí"]
 
-    df["es_riesgo_estructural"] = check_cond_cols(df, ["cimentacion", "columnas", "vigas", "grieta_estructural"], val_criticos)
+    df["es_riesgo_estructural"] = check_cond_cols(df, ["cimentacion", "columnas", "vigas", "estructurales", "estructural"], val_criticos)
     df["es_afectacion_cubierta"] = check_cond_cols(df, ["cubierta", "techo"], val_mod_crit)
-    df["es_afectacion_muros"] = check_cond_cols(df, ["muros", "fachada", "grieta_muro"], val_mod_crit)
-    df["es_colapso"] = check_cond_cols(df, ["dano", "colaps", "parte_colapsada"], ["Colapso"]) | df["clasificacion_habitabilidad"].astype(str).str.contains("colapso", case=False, na=False)
+    df["es_afectacion_muros"] = check_cond_cols(df, ["muros", "fachada", "inclinacion"], val_mod_crit)
+    df["es_colapso"] = check_cond_cols(df, ["colaps", "parte_colapsada"], ["Colapso", "Si", "Sí"]) | df["clasificacion_habitabilidad"].astype(str).str.contains("colapso", case=False, na=False)
 
     cols_sev = [c for c in df.columns if c.startswith("dano_")]
     def resumen_danos(row):
         danos = [f"{c.replace('dano_', '').title()} ({row[c]})" for c in cols_sev if row[c] in ["Severo", "Colapso"]]
         return " | ".join(danos) if danos else "Sin daños estructurales críticos"
-
     df["resumen_danos_criticos"] = df.apply(resumen_danos, axis=1) if cols_sev else "Sin evaluación de daños"
     df["id_casa"] = range(1, len(df) + 1)
+    
     return df, colores_hab
 
 df, colores_habitabilidad = cargar_datos()
-
-if df.empty:
-    st.error("No se pudieron cargar los datos de Google Sheets.")
-    st.stop()
 
 # ===================================================================
 # 3. INTERFAZ SALA DE CRISIS
@@ -463,7 +413,6 @@ with tabs[1]:
         with sub_tab2:
             df_viva = df_m.groupby(["barrio_estandar", "clasificacion_habitabilidad"]).size().reset_index(name="count")
             barrios_orden = df_viva.groupby("barrio_estandar")["count"].sum().sort_values(ascending=False).index.tolist()
-            
             fig_viva = px.bar(
                 df_viva, x="barrio_estandar", y="count", color="clasificacion_habitabilidad",
                 color_discrete_map=colores_habitabilidad,
@@ -471,7 +420,7 @@ with tabs[1]:
                     "barrio_estandar": barrios_orden,
                     "clasificacion_habitabilidad": ["Habitable", "Habitable con restricciones", "No evaluado", "No habitable", "Riesgo de colapso"]
                 },
-                labels={"barrio_estandar": "", "count": "Cantidad de Viviendas Filtradas", "clasificacion_habitabilidad": ""}
+                labels={"barrio_estandar": "", "count": "Cantidad de Viviendas", "clasificacion_habitabilidad": ""}
             )
             fig_viva = aplicar_estilo_plotly(fig_viva, height=480)
             fig_viva.update_layout(barmode="stack", xaxis=dict(tickangle=-30), yaxis_title="Cantidad de Viviendas Filtradas", legend=dict(traceorder="reversed"))
