@@ -10,7 +10,7 @@ import unicodedata
 from datetime import datetime
 
 # ===================================================================
-# 1. CONFIGURACIÓN DE PÁGINA Y CSS (TEMA FLATLY Y FORZADO CLARO)
+# 1. CONFIGURACIÓN DE PÁGINA Y FORZADO DE ESTILOS CLAROS
 # ===================================================================
 st.set_page_config(
     page_title="PMU - Sala de Crisis Istmina",
@@ -19,11 +19,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilizado global CSS
+# CSS con control total sobre Streamlit Cloud
 st.markdown("""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    /* Fondo general gris claro Flexdashboard */
+    /* Fondo general claro Flexdashboard */
     .stApp {
         background-color: #eaeded !important;
         color: #2c3e50 !important;
@@ -49,32 +49,54 @@ st.markdown("""
         letter-spacing: 0.5px;
     }
 
-    /* Pestañas de Navegación */
+    /* PESTAÑAS DE NAVEGACIÓN (Letras visibles) */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #1abc9c !important;
-        padding: 0px 15px !important;
+        padding: 5px 15px 0px 15px !important;
         gap: 4px !important;
         border-bottom: none !important;
     }
     .stTabs [data-baseweb="tab"] {
+        background-color: transparent !important;
+        border: none !important;
+        padding: 10px 16px !important;
+    }
+    .stTabs [data-baseweb="tab"] p, .stTabs [data-baseweb="tab"] span {
         color: #ffffff !important;
         font-weight: 700 !important;
         font-size: 14px !important;
-        padding: 10px 18px !important;
-        border: none !important;
-        background-color: transparent !important;
         opacity: 0.85 !important;
     }
     .stTabs [aria-selected="true"] {
-        color: #ffffff !important;
-        opacity: 1.0 !important;
         background-color: #16a085 !important;
         border-bottom: 4px solid #f1c40f !important;
     }
-
-    /* Sub-pestañas */
-    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+    .stTabs [aria-selected="true"] p, .stTabs [aria-selected="true"] span {
+        opacity: 1.0 !important;
         color: #ffffff !important;
+    }
+
+    /* ETIQUETAS DE TEXTO (Labels visibles en oscuro) */
+    label, [data-testid="stWidgetLabel"] p, .stMarkdown p {
+        color: #2c3e50 !important;
+        font-weight: 700 !important;
+    }
+
+    /* CAJAS DE ENTRADA, DESPLEGABLES Y BÚSQUEDA (Fondo Blanco) */
+    input, div[data-baseweb="input"], div[data-baseweb="select"] > div, textarea {
+        background-color: #ffffff !important;
+        color: #2c3e50 !important;
+        border: 1px solid #bdc3c7 !important;
+        border-radius: 4px !important;
+    }
+    div[data-baseweb="select"] span, div[data-baseweb="select"] div {
+        color: #2c3e50 !important;
+    }
+    
+    /* Menús desplegables activos */
+    div[data-baseweb="popover"] div, div[role="listbox"] {
+        background-color: #ffffff !important;
+        color: #2c3e50 !important;
     }
 
     /* Tarjetas ValueBox con Ícono de Marca de Agua */
@@ -120,7 +142,6 @@ st.markdown("""
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
 
-    /* Títulos en contenedores */
     .chart-title {
         color: #2c3e50 !important;
         font-weight: 700;
@@ -139,7 +160,8 @@ if "expediente_buscado" not in st.session_state:
     st.session_state["expediente_buscado"] = ""
 
 if not st.session_state["autenticado"]:
-    st.title("🚨 PMU - Sala de Crisis Istmina")
+    st.markdown('<div class="pmu-navbar">🚨 PMU - Sala de Crisis Istmina</div>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     clave = st.text_input("Ingrese la clave de acceso para continuar:", type="password")
     if st.button("Ingresar"):
         if clave == "Istmina2026":
@@ -161,7 +183,7 @@ def render_value_box(numero, titulo, color_bg, icono_fa):
     </div>
     """, unsafe_allow_html=True)
 
-# Configuración del tema claro para Plotly
+# Estilizado para gráficos de Plotly
 def aplicar_estilo_plotly(fig, height=350):
     fig.update_layout(
         template="plotly_white",
@@ -170,21 +192,9 @@ def aplicar_estilo_plotly(fig, height=350):
         font=dict(color="#2c3e50", family="Lato, sans-serif", size=12),
         margin=dict(l=10, r=10, t=10, b=10),
         height=height,
-        xaxis=dict(
-            gridcolor="#e5e8e8",
-            zerolinecolor="#e5e8e8",
-            tickfont=dict(color="#2c3e50"),
-            title_font=dict(color="#2c3e50")
-        ),
-        yaxis=dict(
-            gridcolor="#e5e8e8",
-            zerolinecolor="#e5e8e8",
-            tickfont=dict(color="#2c3e50"),
-            title_font=dict(color="#2c3e50")
-        ),
-        legend=dict(
-            font=dict(color="#2c3e50")
-        )
+        xaxis=dict(gridcolor="#e5e8e8", zerolinecolor="#e5e8e8", tickfont=dict(color="#2c3e50"), title_font=dict(color="#2c3e50")),
+        yaxis=dict(gridcolor="#e5e8e8", zerolinecolor="#e5e8e8", tickfont=dict(color="#2c3e50"), title_font=dict(color="#2c3e50")),
+        legend=dict(font=dict(color="#2c3e50"))
     )
     return fig
 
