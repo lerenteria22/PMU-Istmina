@@ -84,7 +84,7 @@ st.markdown("""
         opacity: 1.0 !important;
     }
 
-    /* ESTILO INTEGRADO PARA TODOS LOS BOTONES (Sigue la paleta del Header) */
+    /* ESTILO INTEGRADO PARA TODOS LOS BOTONES */
     div.stButton > button, div.stButton > button:focus, div.stButton > button:active {
         background-color: #1abc9c !important;
         color: #ffffff !important;
@@ -224,7 +224,7 @@ def render_value_box(numero, titulo, color_bg, icono_fa):
     </div>
     """, unsafe_allow_html=True)
 
-# Estilizado estricto para gráficos de Plotly
+# Estilizado estricto para gráficos de Plotly (Sintaxis bgcolor corregida)
 def aplicar_estilo_plotly(fig, height=320):
     fig.update_layout(
         paper_bgcolor="#ffffff",
@@ -246,7 +246,7 @@ def aplicar_estilo_plotly(fig, height=320):
         ),
         legend=dict(
             font=dict(color="#2c3e50"),
-            bg_color="rgba(255,255,255,0.8)"
+            bgcolor="rgba(255,255,255,0.8)"
         )
     )
     return fig
