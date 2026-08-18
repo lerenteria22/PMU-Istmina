@@ -326,7 +326,7 @@ with tabs[0]:
     st.plotly_chart(fig_tiempo, use_container_width=True, theme=None)
 
 # -------------------------------------------------------------------
-# TAB 2: VISOR GEOESPACIAL
+# TAB 2: VISOR GEOESPACIAL (SIMETRÍA PERFECTA 2x2)
 # -------------------------------------------------------------------
 with tabs[1]:
     col_f, col_m = st.columns([45, 55])
@@ -371,7 +371,8 @@ with tabs[1]:
     with col_m:
         sub_tab1, sub_tab2 = st.tabs(["📋 Padrón Filtrado", "📊 Gráfica Viva Barrios"])
         with sub_tab1:
-            st.dataframe(df_m[["nombre_propietario", "barrio_estandar", "sector_especifico", "clasificacion_habitabilidad", "total_habitantes", "telefono"]], height=380, use_container_width=True)
+            # Altura ajustada a 520px para ocupar el alto completo de la columna izquierda
+            st.dataframe(df_m[["nombre_propietario", "barrio_estandar", "sector_especifico", "clasificacion_habitabilidad", "total_habitantes", "telefono"]], height=520, use_container_width=True)
             propietario_sel = st.selectbox("Seleccionar para expediente:", options=["-- Seleccionar --"] + sorted(df_m["nombre_propietario"].unique().tolist()))
             if propietario_sel != "-- Seleccionar --":
                 if st.button("📂 Ver Expediente Completo", key="btn_exp_visor"):
@@ -380,7 +381,7 @@ with tabs[1]:
 
         with sub_tab2:
             fig_viva = px.histogram(df_m, x="barrio_estandar", color="clasificacion_habitabilidad", color_discrete_map=colores_habitabilidad, labels={"barrio_estandar": "", "count": "Cantidad de Viviendas Filtradas"})
-            fig_viva = aplicar_estilo_plotly(fig_viva, height=380)
+            fig_viva = aplicar_estilo_plotly(fig_viva, height=520)
             fig_viva.update_layout(yaxis_title="Cantidad de Viviendas Filtradas", xaxis_title="")
             st.plotly_chart(fig_viva, use_container_width=True, theme=None)
 
