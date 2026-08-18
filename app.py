@@ -118,7 +118,7 @@ def aplicar_estilo_plotly(fig, height=350):
     return fig
 
 # ===================================================================
-# 2. CARGA Y TRATAMIENTO DE DATOS CON DEPURACIÓN RIGUROSA DE DUPLICADOS
+# 2. CARGA Y TRATAMIENTO DE DATOS CON DEPURACIÓN QUIRÚRGICA
 # ===================================================================
 def clean_col(name):
     name = unicodedata.normalize('NFD', str(name))
@@ -157,7 +157,8 @@ def cargar_datos():
             "barrio_vereda": ["Cubis", "Comercio", "Independencia"],
             "clasificacion_habitabilidad": ["Riesgo de colapso", "Habitable", "No habitable"],
             "total_habitantes": [5, 3, 4], "ninos": [2, 0, 1], "adultos_mayores": [1, 0, 1],
-            "n_personas_discapacidad": [0, 1, 0], "n_mujeres_embarazadas": [1, 0, 0],
+            "numdiscapacidad": [0, 1, 0], "numembarazadas": [1, 0, 0],
+            "discapacidad": ["No", "Sí", "No"], "embarazadas": ["Sí", "No", "No"],
             "coordenadas_gps": ["5.161,-76.681", "5.165,-76.675", "5.158,-76.685"],
             "nombre_propietario": ["Carlos Pérez", "María López", "Juan Gómez"],
             "telefono": ["3101234567", "3119876543", "3125554433"],
@@ -171,14 +172,20 @@ def cargar_datos():
     col_habitantes = buscar_columna(df.columns, ["total_habitantes", "habitantes", "personas"]) or "total_habitantes"
     col_ninos = buscar_columna(df.columns, ["ninos", "ninase"]) or "ninos"
     col_mayores = buscar_columna(df.columns, ["adultos_mayores", "mayores", "ancianos"]) or "adultos_mayores"
-    col_discap = buscar_columna(df.columns, ["discapacidad"]) or "n_personas_discapacidad"
-    col_embaraz = buscar_columna(df.columns, ["embarazada", "gestante"]) or "n_mujeres_embarazadas"
+    
+    # Búsqueda rigurosa de vulnerabilidades (Número vs Texto)
+    col_discap_num = buscar_columna(df.columns, ["numdiscapacidad", "cant_discapacidad", "n_personas_discapacidad"])
+    col_discap_txt = buscar_columna(df.columns, ["discapacidad"])
+    col_emb_num = buscar_columna(df.columns, ["numembarazadas", "cant_embarazadas", "n_mujeres_embarazadas"])
+    col_emb_txt = buscar_columna(df.columns, ["embarazada", "embarazadas", "gestante"])
+
     col_propietario = buscar_columna(df.columns, ["propietario", "nombre", "afectado"]) or "nombre_propietario"
     col_telefono = buscar_columna(df.columns, ["telefono", "celular", "contacto"]) or "telefono"
     col_documento = buscar_columna(df.columns, ["documento", "cedula", "identificacion", "id", "cc"]) or "documento"
     col_necesidades = buscar_columna(df.columns, ["necesidad", "requiere"]) or "necesidades_inmediatas"
     col_coords = buscar_columna(df.columns, ["coordenadas", "gps", "ubicacion"]) or "coordenadas_gps"
 
+    # Captura directa de la Columna B (Índice 1 en programación) para el link de fotos
     col_fotos = df.columns[1] if len(df.columns) > 1 else "fotos"
 
     df["barrio_vereda"] = df[col_barrio].fillna("No registrado").astype(str) if col_barrio in df.columns else "No registrado"
@@ -186,8 +193,28 @@ def cargar_datos():
     df["total_habitantes"] = pd.to_numeric(df[col_habitantes], errors='coerce').fillna(0).astype(int) if col_habitantes in df.columns else 0
     df["ninos"] = pd.to_numeric(df[col_ninos], errors='coerce').fillna(0).astype(int) if col_ninos in df.columns else 0
     df["adultos_mayores"] = pd.to_numeric(df[col_mayores], errors='coerce').fillna(0).astype(int) if col_mayores in df.columns else 0
-    df["n_personas_discapacidad"] = pd.to_numeric(df[col_discap], errors='coerce').fillna(0).astype(int) if col_discap in df.columns else 0
-    df["n_mujeres_embarazadas"] = pd.to_numeric(df[col_embaraz], errors='coerce').fillna(0).astype(int) if col_embaraz in df.columns else 0
+    
+    # -------------------------------------------------------------------
+    # DETECCIÓN ESTRUCTURADA DE DISCAPACIDAD Y EMBARAZO (NÚMERO + RESPALDO)
+    # -------------------------------------------------------------------
+    if col_discap_num and col_discap_num in df.columns:
+        df["n_personas_discapacidad"] = pd.to_numeric(df[col_discap_num], errors='coerce').fillna(0).astype(int)
+    else:
+        df["n_personas_discapacidad"] = 0
+
+    if col_discap_txt and col_discap_txt in df.columns:
+        mask_txt_discap = df[col_discap_txt].astype(str).str.lower().str.contains("si|sí")
+        df.loc[mask_txt_discap & (df["n_personas_discapacidad"] == 0), "n_personas_discapacidad"] = 1
+
+    if col_emb_num and col_emb_num in df.columns:
+        df["n_mujeres_embarazadas"] = pd.to_numeric(df[col_emb_num], errors='coerce').fillna(0).astype(int)
+    else:
+        df["n_mujeres_embarazadas"] = 0
+
+    if col_emb_txt and col_emb_txt in df.columns:
+        mask_txt_emb = df[col_emb_txt].astype(str).str.lower().str.contains("si|sí")
+        df.loc[mask_txt_emb & (df["n_mujeres_embarazadas"] == 0), "n_mujeres_embarazadas"] = 1
+
     df["nombre_propietario"] = df[col_propietario].fillna("No registrado").astype(str) if col_propietario in df.columns else "No registrado"
     df["necesidades_inmediatas"] = df[col_necesidades].fillna("Sin especificación").astype(str) if col_necesidades in df.columns else "Sin especificación"
     df["fotos"] = df[col_fotos].fillna("").astype(str) if col_fotos in df.columns else ""
@@ -244,18 +271,30 @@ def cargar_datos():
     df["sector_especifico"] = df["barrio_vereda"].apply(estandarizar_sector)
 
     # -------------------------------------------------------------------
-    # FILTRO AVANZADO DE ENTRADAS REPETIDAS (DEPURACIÓN ESTRUCTURADA)
+    # OPCIÓN C MEJORADA: FILTRO QUIRÚRGICO DE REPETIDOS POR HUELLA DIGITAL
     # -------------------------------------------------------------------
-    # 1. Conservar el registro más reciente si coincide el documento de identidad
-    mask_doc_valido = (df["documento"] != "No registrado") & (df["documento"] != "") & (df["documento"] != "0")
-    df_con_doc = df[mask_doc_valido].drop_duplicates(subset=["documento"], keep="last")
-    df_sin_doc = df[~mask_doc_valido]
+    df['lat_round'] = df['lat'].round(4)
+    df['lon_round'] = df['lon'].round(4)
     
-    # 2. Para registros sin documento, depurar por Propietario + Barrio
-    df_sin_doc = df_sin_doc.drop_duplicates(subset=["nombre_propietario", "barrio_estandar"], keep="last")
+    col_area = buscar_columna(df.columns, ["area", "superficie"])
+    col_anio = buscar_columna(df.columns, ["anio", "edad", "construccion"])
+    col_hora = buscar_columna(df.columns, ["horavisita", "hora", "timestamp", "marca_temporal"])
+
+    df['val_area'] = df[col_area].fillna("").astype(str) if col_area else ""
+    df['val_anio'] = df[col_anio].fillna("").astype(str) if col_anio else ""
+    df['val_hora'] = df[col_hora].fillna("").astype(str) if col_hora else ""
+
+    df['huella_propiedad'] = (
+        df['nombre_propietario'].astype(str).str.lower().str.strip() + "_" +
+        df['lat_round'].astype(str) + "_" +
+        df['lon_round'].astype(str) + "_" +
+        df['val_area'] + "_" +
+        df['val_anio'] + "_" +
+        df['val_hora']
+    )
     
-    # 3. Consolidar el dataframe limpio
-    df = pd.concat([df_con_doc, df_sin_doc]).sort_index().reset_index(drop=True)
+    # Preservar siempre la última re-evaluación exacta de una misma propiedad
+    df = df.drop_duplicates(subset=['huella_propiedad'], keep='last').reset_index(drop=True)
 
     colores_hab = {
         "Habitable": "#27ae60",
@@ -501,11 +540,9 @@ with tabs[2]:
 
             df_mapa_danos = df.copy()
 
-            # Filtrado por Barrio y Sector
             if b_dano: df_mapa_danos = df_mapa_danos[df_mapa_danos["barrio_estandar"].isin(b_dano)]
             if s_dano: df_mapa_danos = df_mapa_danos[df_mapa_danos["sector_especifico"].isin(s_dano)]
 
-            # Filtrado interactivo por casillas de verificación
             if c_cubierta or c_muros or c_estructural or c_colapso:
                 cond_afect = pd.Series(False, index=df_mapa_danos.index)
                 if c_cubierta: cond_afect |= df_mapa_danos["es_afectacion_cubierta"]
@@ -514,7 +551,6 @@ with tabs[2]:
                 if c_colapso: cond_afect |= df_mapa_danos["es_colapso"]
                 df_mapa_danos = df_mapa_danos[cond_afect]
             else:
-                # Si no hay ninguna casilla marcada, se muestran todas las viviendas con algún daño
                 df_mapa_danos = df_mapa_danos[df_mapa_danos["es_riesgo_estructural"] | df_mapa_danos["es_afectacion_cubierta"] | df_mapa_danos["es_afectacion_muros"] | df_mapa_danos["es_colapso"]]
 
         with col_dmapa:
