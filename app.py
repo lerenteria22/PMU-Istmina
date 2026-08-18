@@ -10,7 +10,7 @@ import unicodedata
 from datetime import datetime
 
 # ===================================================================
-# 1. CONFIGURACIÓN DE PÁGINA Y FORZADO DE ESTILOS CLAROS
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS ESTRICTOS
 # ===================================================================
 st.set_page_config(
     page_title="PMU - Sala de Crisis Istmina",
@@ -19,7 +19,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS con control total sobre Streamlit Cloud
 st.markdown("""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
@@ -38,51 +37,73 @@ st.markdown("""
         max-width: 100% !important;
     }
 
-    /* Barra Superior Turquesa Flatly */
+    /* BARRA SUPERIOR TURQUESA (Header) */
     .pmu-navbar {
-        background-color: #1abc9c;
-        color: white;
-        padding: 12px 20px;
-        margin-bottom: 0px;
-        font-size: 20px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
+        background-color: #1abc9c !important;
+        color: #ffffff !important;
+        padding: 14px 20px !important;
+        margin-bottom: 0px !important;
+        font-size: 22px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.5px !important;
     }
 
-    /* PESTAÑAS DE NAVEGACIÓN (Letras visibles) */
+    /* BARRA DE NAVEGACIÓN (Del mismo color del Header) */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #1abc9c !important;
-        padding: 5px 15px 0px 15px !important;
+        padding: 0px 15px 4px 15px !important;
         gap: 4px !important;
         border-bottom: none !important;
     }
+
+    /* BOTONES DE PESTAÑAS (Texto blanco sobre fondo turquesa) */
     .stTabs [data-baseweb="tab"] {
-        background-color: transparent !important;
+        background-color: #1abc9c !important;
         border: none !important;
-        padding: 10px 16px !important;
+        padding: 10px 18px !important;
+        border-radius: 4px 4px 0 0 !important;
     }
-    .stTabs [data-baseweb="tab"] p, .stTabs [data-baseweb="tab"] span {
+    .stTabs [data-baseweb="tab"] p, 
+    .stTabs [data-baseweb="tab"] span,
+    .stTabs [data-baseweb="tab"] div {
         color: #ffffff !important;
         font-weight: 700 !important;
         font-size: 14px !important;
-        opacity: 0.85 !important;
+        opacity: 0.95 !important;
     }
+
+    /* PESTAÑA ACTIVA (Verde oscuro con subrayado amarillo) */
     .stTabs [aria-selected="true"] {
         background-color: #16a085 !important;
         border-bottom: 4px solid #f1c40f !important;
     }
-    .stTabs [aria-selected="true"] p, .stTabs [aria-selected="true"] span {
-        opacity: 1.0 !important;
+    .stTabs [aria-selected="true"] p, 
+    .stTabs [aria-selected="true"] span,
+    .stTabs [aria-selected="true"] div {
         color: #ffffff !important;
+        opacity: 1.0 !important;
     }
 
-    /* ETIQUETAS DE TEXTO (Labels visibles en oscuro) */
-    label, [data-testid="stWidgetLabel"] p, .stMarkdown p {
+    /* LETRAS NEGRAS EN CONTAINERS Y CAMPOS */
+    div[data-testid="stVerticalBlock"] p,
+    div[data-testid="stVerticalBlock"] span,
+    div[data-testid="stVerticalBlock"] label,
+    [data-testid="stWidgetLabel"] p,
+    .chart-title {
         color: #2c3e50 !important;
         font-weight: 700 !important;
     }
 
-    /* CAJAS DE ENTRADA, DESPLEGABLES Y BÚSQUEDA (Fondo Blanco) */
+    /* TABLAS Y DATAFRAMES BLANCOS CON TEXTO NEGRO */
+    div[data-testid="stDataFrame"], 
+    div[data-testid="stTable"],
+    div[data-testid="stDataFrame"] div,
+    [data-testid="stElementToolbar"] {
+        background-color: #ffffff !important;
+        color: #2c3e50 !important;
+    }
+
+    /* CAJAS DE TEXTO Y DESPLEGABLES BLANCOS */
     input, div[data-baseweb="input"], div[data-baseweb="select"] > div, textarea {
         background-color: #ffffff !important;
         color: #2c3e50 !important;
@@ -92,14 +113,12 @@ st.markdown("""
     div[data-baseweb="select"] span, div[data-baseweb="select"] div {
         color: #2c3e50 !important;
     }
-    
-    /* Menús desplegables activos */
     div[data-baseweb="popover"] div, div[role="listbox"] {
         background-color: #ffffff !important;
         color: #2c3e50 !important;
     }
 
-    /* Tarjetas ValueBox con Ícono de Marca de Agua */
+    /* TARJETAS VALUEBOX */
     .value-box {
         border-radius: 4px;
         padding: 15px 20px;
@@ -133,7 +152,7 @@ st.markdown("""
         color: white !important;
     }
 
-    /* Contenedores Blancos para Gráficos y Tablas */
+    /* CONTENEDORES BLANCOS */
     div[data-testid="stVerticalBlock"] > div[data-testid="stBlock"] {
         background-color: #ffffff !important;
         border-radius: 4px;
