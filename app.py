@@ -10,7 +10,7 @@ import unicodedata
 from datetime import datetime
 
 # ===================================================================
-# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS (FLEXDASHBOARD FLATLY)
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS (FLEXDASHBOARD FLATLY)LR
 # ===================================================================
 st.set_page_config(
     page_title="PMU - Sala de Crisis Istmina",
