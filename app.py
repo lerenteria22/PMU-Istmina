@@ -203,7 +203,22 @@ def cargar_datos():
     col_demolicion = "demolicion_inmediata"
     col_pobreza = "vulnerabilidad_pobreza_extrema"
 
-    df["demolicion_inmediata"] = df[col_demolicion].astype(str).str.lower().str.contains("si|sí|true|verdadero", na=False) if col_demolicion in df.columns else False
+    # Lógica de Demolición (Blanco/NaN = N/R)
+    if col_demolicion in df.columns:
+        def eval_demolicion(val):
+            s_val = str(val).strip().lower()
+            if pd.isna(val) or s_val in ["", "nan", "none", "no registrado"]:
+                return "N/R"
+            elif re.search(r"si|sí|true|verdadero", s_val):
+                return "🚨 Sí"
+            else:
+                return "No"
+        df["demolicion_texto"] = df[col_demolicion].apply(eval_demolicion)
+        df["demolicion_inmediata"] = df["demolicion_texto"] == "🚨 Sí"
+    else:
+        df["demolicion_texto"] = "N/R"
+        df["demolicion_inmediata"] = False
+
     df["pobreza_extrema"] = df[col_pobreza].astype(str).str.lower().str.contains("si|sí|true|verdadero", na=False) if col_pobreza in df.columns else False
 
     def extraer_numero(serie):
@@ -1362,8 +1377,8 @@ with tabs[5]:
         # Reseteamos el index para que Streamlit sepa qué fila seleccionamos exactamente
         df_critico = df_critico.reset_index(drop=True)
         
-        # Mapeamos demolición para visualización rápida en la tabla
-        df_critico["Demolición"] = df_critico["demolicion_inmediata"].apply(lambda x: "🚨 Sí" if x else "No")
+        # Mapeamos demolición usando demolicion_texto ("🚨 Sí", "No", o "N/R")
+        df_critico["Demolición"] = df_critico["demolicion_texto"]
         
         df_c_show = df_critico[[
             "fecha_corta", "nombre_evaluador", "nombre_propietario", "documento", 
