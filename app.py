@@ -73,6 +73,9 @@ if "autenticado" not in st.session_state:
 if "expediente_buscado" not in st.session_state:
     st.session_state["expediente_buscado"] = ""
 
+if "target_mapa" not in st.session_state:
+    st.session_state["target_mapa"] = None
+
 if not st.session_state["autenticado"]:
     st.markdown(
         '<div class="pmu-navbar">🚨 PMU - Sala de Crisis Istmina</div>',
@@ -189,6 +192,7 @@ def cargar_datos():
     col_emb_txt = "mujeres_embarazadas"
 
     col_propietario = "nombre_propietario"
+    col_evaluador = "nombre_evaluador"
     col_telefono = "telefono"
     col_documento = "n_documento"
     col_necesidades = "necesidades_inmediatas"
@@ -196,7 +200,6 @@ def cargar_datos():
     col_fecha_real = "marca_temporal"
     col_fotos = "link_carpeta_drive"
 
-    # Nuevas variables (Demolición y Extrema Pobreza)
     col_demolicion = "demolicion_inmediata"
     col_pobreza = "vulnerabilidad_pobreza_extrema"
 
@@ -260,11 +263,28 @@ def cargar_datos():
         if col_propietario in df.columns
         else "No registrado"
     )
+    
+    df["nombre_evaluador"] = (
+        df[col_evaluador].fillna("No registrado").astype(str)
+        if col_evaluador in df.columns
+        else "No registrado"
+    )
+    
     df["necesidades_inmediatas"] = (
         df[col_necesidades].fillna("Sin especificación").astype(str)
         if col_necesidades in df.columns
         else "Sin especificación"
     )
+    
+    # Links directos de Drive para la tabla
+    df["link_drive"] = (
+        df[col_fotos].fillna("").astype(str)
+        if col_fotos in df.columns
+        else ""
+    )
+    df["link_drive"] = df["link_drive"].apply(lambda x: x if "http" in str(x) else None)
+
+    # Botones HTML para los popups
     df["fotos"] = (
         df[col_fotos].fillna("").astype(str)
         if col_fotos in df.columns
@@ -775,6 +795,18 @@ with tabs[2]:
     with sub_d1:
         col_dfiltros, col_dmapa = st.columns([3, 7])
         with col_dfiltros:
+            
+            # Verificar si venimos del botón "Focalizar" en expedientes
+            target = st.session_state.get("target_mapa")
+            
+            if target:
+                st.warning("🎯 **MODO RADAR TÁCTICO ACTIVO**")
+                st.write(f"Viendo ubicación de: **{target['propietario']}**")
+                if st.button("❌ Quitar focalización y ver toda Istmina", type="primary"):
+                    st.session_state["target_mapa"] = None
+                    st.rerun()
+                st.markdown("<hr>", unsafe_allow_html=True)
+            
             st.markdown(
                 '<span class="chart-title">Filtros de Afectación</span>',
                 unsafe_allow_html=True,
@@ -831,10 +863,22 @@ with tabs[2]:
                 ]
 
         with col_dmapa:
+            # Lógica de Zoom y Centro del Mapa
+            if target:
+                map_center = [target["lat"], target["lon"]]
+                map_zoom = 18
+            else:
+                map_center = [5.161, -76.681]
+                map_zoom = 14
+                
             m_dano = folium.Map(
-                location=[5.161, -76.681], zoom_start=14, tiles="CartoDB positron"
+                location=map_center, zoom_start=map_zoom, tiles="CartoDB positron"
             )
+            
             for _, r in df_mapa_danos.iterrows():
+                
+                is_target = target and r["id_casa"] == target["id_casa"]
+                
                 color_point = (
                     "#8e44ad"
                     if r["es_colapso"]
@@ -861,15 +905,25 @@ with tabs[2]:
                         <div style='text-align:center;'>{r['btn_foto']}</div>
                         </div>
                         """
-                folium.CircleMarker(
-                    location=[r["lat"], r["lon"]],
-                    radius=8,
-                    color=color_point,
-                    fill=True,
-                    fill_color=color_point,
-                    fill_opacity=0.85,
-                    popup=folium.Popup(html_p, max_width=280),
-                ).add_to(m_dano)
+                
+                if is_target:
+                    # Pin Gigante Rojo que se abre automáticamente
+                    folium.Marker(
+                        location=[r["lat"], r["lon"]],
+                        icon=folium.Icon(color='red', icon='exclamation-triangle', prefix='fa'),
+                        popup=folium.Popup(html_p, max_width=280, show=True),
+                    ).add_to(m_dano)
+                else:
+                    folium.CircleMarker(
+                        location=[r["lat"], r["lon"]],
+                        radius=8,
+                        color=color_point,
+                        fill=True,
+                        fill_color=color_point,
+                        fill_opacity=0.85,
+                        popup=folium.Popup(html_p, max_width=280),
+                    ).add_to(m_dano)
+                    
             st_folium(m_dano, width="100%", height=400, key="mapa_danos")
 
     with sub_d2:
@@ -1226,14 +1280,13 @@ with tabs[4]:
 # TAB 6: EXPEDIENTES
 with tabs[5]:
     st.markdown(
-        '<span class="chart-title">📂 Base de Datos Completa de'
-        " Evaluación</span>",
+        '<span class="chart-title">📂 Buscador Maestro de Expedientes</span>',
         unsafe_allow_html=True,
     )
     col_search, col_clean = st.columns([4, 1])
     with col_search:
         busqueda = st.text_input(
-            "🔍 Buscar por Nombre de Propietario o Barrio:",
+            "🔍 Escribe el Nombre del Propietario, Cédula o Barrio:",
             value=st.session_state["expediente_buscado"],
         )
     with col_clean:
@@ -1242,47 +1295,118 @@ with tabs[5]:
             st.session_state["expediente_buscado"] = ""
             st.rerun()
 
-    df_export = df.rename(
-        columns={
-            "fecha_corta": "Fecha",
-            "barrio_estandar": "Barrio",
-            "sector_especifico": "Sector",
-            "nombre_propietario": "Propietario",
-            "documento": "Documento",
-            "telefono": "Teléfono",
-            "clasificacion_habitabilidad": "Habitabilidad",
-            "total_habitantes": "Pob_Total",
-            "ninos": "Niños",
-            "adultos_mayores": "Mayores",
-            "n_personas_discapacidad": "Discapacitados",
-            "n_mujeres_embarazadas": "Embarazadas",
-            "resumen_danos_criticos": "Daños_Críticos",
-            "necesidades_inmediatas": "Necesidades",
-        }
-    )
+    sub_e1, sub_e2 = st.tabs(["📋 Base de Datos Completa", "🚨 Riesgo Estructural Crítico"])
 
-    cols_exp = [
-        "Fecha",
-        "Barrio",
-        "Sector",
-        "Propietario",
-        "Documento",
-        "Teléfono",
-        "Habitabilidad",
-        "Pob_Total",
-        "Niños",
-        "Mayores",
-        "Discapacitados",
-        "Embarazadas",
-        "Daños_Críticos",
-        "Necesidades",
-    ]
-    df_e = df_export[[c for c in cols_exp if c in df_export.columns]].copy()
+    with sub_e1:
+        df_export = df.rename(
+            columns={
+                "fecha_corta": "Fecha",
+                "nombre_evaluador": "Evaluador",
+                "barrio_estandar": "Barrio",
+                "sector_especifico": "Sector",
+                "nombre_propietario": "Propietario",
+                "documento": "Documento",
+                "telefono": "Teléfono",
+                "clasificacion_habitabilidad": "Habitabilidad",
+                "total_habitantes": "Pob_Total",
+                "ninos": "Niños",
+                "adultos_mayores": "Mayores",
+                "n_personas_discapacidad": "Discapacitados",
+                "n_mujeres_embarazadas": "Embarazadas",
+                "resumen_danos_criticos": "Daños_Críticos",
+                "necesidades_inmediatas": "Necesidades",
+            }
+        )
 
-    if busqueda:
-        df_e = df_e[
-            df_e["Propietario"].astype(str).str.contains(busqueda, case=False)
-            | df_e["Barrio"].astype(str).str.contains(busqueda, case=False)
+        cols_exp = [
+            "Fecha",
+            "Evaluador",
+            "Barrio",
+            "Sector",
+            "Propietario",
+            "Documento",
+            "Teléfono",
+            "Habitabilidad",
+            "Pob_Total",
+            "Niños",
+            "Mayores",
+            "Discapacitados",
+            "Embarazadas",
+            "Daños_Críticos",
+            "Necesidades",
         ]
+        df_e = df_export[[c for c in cols_exp if c in df_export.columns]].copy()
 
-    st.dataframe(df_e, use_container_width=True)
+        if busqueda:
+            df_e = df_e[
+                df_e["Propietario"].astype(str).str.contains(busqueda, case=False)
+                | df_e["Barrio"].astype(str).str.contains(busqueda, case=False)
+                | df_e["Documento"].astype(str).str.contains(busqueda, case=False)
+            ]
+
+        st.dataframe(df_e, use_container_width=True)
+
+    with sub_e2:
+        st.markdown("**Instrucción:** Haz **clic en cualquier fila** de la tabla para enviar la vivienda al Radar Táctico del Mapa.")
+        
+        df_critico = df[df["es_riesgo_estructural"] == True].copy()
+        
+        # Aplicamos la búsqueda también a la tabla crítica si hay filtro escrito
+        if busqueda:
+            df_critico = df_critico[
+                df_critico["nombre_propietario"].astype(str).str.contains(busqueda, case=False)
+                | df_critico["barrio_estandar"].astype(str).str.contains(busqueda, case=False)
+                | df_critico["documento"].astype(str).str.contains(busqueda, case=False)
+            ]
+        
+        # Reseteamos el index para que Streamlit sepa qué fila seleccionamos exactamente
+        df_critico = df_critico.reset_index(drop=True)
+        
+        # Mapeamos demolición para visualización rápida en la tabla
+        df_critico["Demolición"] = df_critico["demolicion_inmediata"].apply(lambda x: "🚨 Sí" if x else "No")
+        
+        df_c_show = df_critico[[
+            "fecha_corta", "nombre_evaluador", "nombre_propietario", "documento", 
+            "telefono", "barrio_estandar", "resumen_danos_criticos", "Demolición", "link_drive"
+        ]].rename(
+            columns={
+                "fecha_corta": "Fecha",
+                "nombre_evaluador": "Evaluador",
+                "nombre_propietario": "Propietario",
+                "documento": "Documento",
+                "telefono": "Teléfono",
+                "barrio_estandar": "Barrio",
+                "resumen_danos_criticos": "Daños_Críticos",
+                "link_drive": "Evidencia",
+            }
+        )
+
+        event = st.dataframe(
+            df_c_show,
+            column_config={
+                "Evidencia": st.column_config.LinkColumn("Evidencia (Drive)"),
+            },
+            use_container_width=True,
+            selection_mode="single-row",
+            on_select="rerun"
+        )
+
+        # Si el usuario hace clic en una fila
+        if len(event.selection.rows) > 0:
+            idx = event.selection.rows[0]
+            # Sacamos los datos de esa casa usando el df reseteado
+            row_data = df_critico.iloc[idx]
+            prop_name = row_data["nombre_propietario"]
+
+            col_btn1, col_btn2 = st.columns([7, 3])
+            with col_btn1:
+                st.info(f"Has seleccionado la vivienda en riesgo crítico de **{prop_name}**.")
+            with col_btn2:
+                if st.button(f"📍 Focalizar en el Mapa", type="primary", use_container_width=True):
+                    st.session_state["target_mapa"] = {
+                        "id_casa": row_data["id_casa"],
+                        "lat": row_data["lat"],
+                        "lon": row_data["lon"],
+                        "propietario": prop_name
+                    }
+                    st.success("✅ Objetivo fijado. Ve a la pestaña 'Análisis de Daños' para ver el Radar Táctico.")
