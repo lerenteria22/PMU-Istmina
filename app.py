@@ -466,6 +466,18 @@ def cargar_datos():
             for c in cols_sev
             if row[c] in ["Severo", "Colapso"]
         ]
+        
+        # AÑADIDO: Capturar alertas visuales Sí/No para el texto
+        for col_alerta, nombre_bonito in [
+            ("grietas_estructurales", "Grietas Estructurales"),
+            ("danos_columnas_vigas", "Daño visible en Columnas/Vigas"),
+            ("parte_colapsada", "Parte Colapsada")
+        ]:
+            if col_alerta in row.index:
+                val = str(row[col_alerta]).strip().lower()
+                if val in ["si", "sí", "true", "verdadero"]:
+                    danos.append(f"{nombre_bonito} (Sí)")
+                    
         return (
             " | ".join(danos) if danos else "Sin daños estructurales críticos"
         )
